@@ -1,0 +1,304 @@
+§ =============================================================
+§  Math, submenues, lists
+§ =============================================================
+
+== LIST: delimiter == dict ==
+	'langle'     : '⟨',
+	'lbrace'     : '{',
+	'lbrack'     : '[',
+	'lceil'      : '⎡',
+	'lfloor'     : '⎣',
+	'lgroup'     : '(',
+	'lmoustache' : '⎰',
+	'rangle'     : '⟩',
+	'rbrace'     : '}',
+	'rbrack'     : ']',
+	'rceil'      : '⎤',
+	'rfloor'     : '⎦',
+	'rgroup'     : ')',
+	'rmoustache' : '⎱',
+	'vert'       : '⎥',
+	'Vert'       : 'ǁ',
+== LIST: functions == dict ==
+	'arccos'  : 'arccos',
+	'arcsin'  : 'arcsin',
+	'arctan'  : 'arctan',
+	'arg'     : 'arg',
+	'cos'     : 'cos',
+	'cosh'    : 'cosh',
+	'cot'     : 'cot',
+	'coth'    : 'coth',
+	'csc'     : 'csc',
+	'deg'     : 'deg',
+	'det'     : 'det',
+	'dim'     : 'dim',
+	'exp'     : 'exp',
+	'gcd'     : 'gcd',
+	'hom'     : 'hom',
+	'inf'     : 'inf',
+	'ker'     : 'ker',
+	'lg'      : 'lg',
+	'lim'     : 'lim',
+	'lim inf' : 'liminf',
+	'lim sup' : 'limsup',
+	'ln'      : 'ln',
+	'log'     : 'log',
+	'max'     : 'max',
+	'min'     : 'min',
+	'Pr'      : 'Pr',
+	'sec'     : 'sec',
+	'sin'     : 'sin',
+	'sinh'    : 'sinh',
+	'sup'     : 'sup',
+	'tan'     : 'tan',
+	'tanh'    : 'tanh',
+== LIST: arrows == dict ==
+	'Downarrow'        : '⇓',
+	'Leftarrow'        : '⇐',
+	'Leftrightarrow'   : '⇔',
+	'Longleftarrow'    : '⇐',
+	'Longrightarrow'   : '⇒',
+	'Rigtharrow'       : '⇒',
+	'Uparrow'          : '⇑',
+	'Updownarrow'      : '⇕',
+	'downarrow'        : '↓',
+	'hookleftarrow'    : '↩',
+	'hookrightarrow'   : '↪',
+	'leftarrow'        : '←',
+	'leftharpoondown'  : '↽',
+	'leftharpoonup'    : '↼',
+	'leftrightarrow'   : '↔',
+	'longleftarrow'    : '←',
+	'longmapsto'       : '↦',
+	'longrightarrow'   : '→',
+	'mapsto'           : '↦',
+	'nearrow'          : '↗',
+	'nwarrow'          : '↖',
+	'rightarrow'       : '→',
+	'rightharpoondown' : '⇁',
+	'rightharpoonup'   : '⇀',
+	'rightleftharpoon' : '⇌',
+	'searrow'          : '↘',
+	'swarrow'          : '↙',
+	'uparrow'          : '↑',
+	'updownarrow'      : '↕',
+== LIST: greek_uppercase == dict ==
+	'Gamma'   : 'Γ',
+	'Delta'   : 'Δ',
+	'Theta'   : 'Θ',
+	'Lambda'  : 'Λ',
+	'Xi'      : 'Ξ',
+	'Pi'      : 'Π',
+	'Sigma'   : 'Σ',
+	'Upsilon' : 'Υ',
+	'Phi'     : 'Φ',
+	'Psi'     : 'Ψ',
+	'Omega'   : 'Ω',
+== LIST: greek_lowercase == dict ==
+	'alpha'      : 'α',
+	'beta'       : 'β',
+	'gamma'      : 'γ',
+	'delta'      : 'δ',
+	'epsilon'    : 'ϵ',
+	'varepsilon' : 'ε',
+	'zeta'       : 'ζ',
+	'eta'        : 'η',
+	'theta'      : 'θ',
+	'vartheta'   : 'ϑ',
+	'iota'       : 'ι',
+	'kappa'      : 'κ',
+	'lambda'     : 'λ',
+	'mu'         : 'μ',
+	'nu'         : 'ν',
+	'xi'         : 'ξ',
+	'omicron'    : 'ο',
+	'pi'         : 'π',
+	'varpi'      : 'ϖ',
+	'rho'        : 'ρ',
+	'varrho'     : 'ϱ',
+	'sigma'      : 'σ',
+	'varsigma'   : 'ς',
+	'tau'        : 'τ',
+	'upsilon'    : 'υ',
+	'phi'        : 'ϕ',
+	'varphi'     : 'φ',
+	'chi'        : 'χ',
+	'psi'        : 'ψ',
+	'omega'      : 'ω',
+== LIST: operators == dict ==
+	'ast'							: '∗',
+	'bigtriangledown'	: '∇',
+	'bigtriangleup'		: '∆',
+	'bullet'					: '∙',
+	'cap'							: '⋂',
+	'cdot'						: '⋅',
+	'circ'						: '∘',
+	'cup'							: '∪',
+	'dagger'					: '†',
+	'ddagger'					: '‡',
+	'diamond'					: '⋄',
+	'div'							: '÷',
+	'mp'							: '∓',
+	'odot'						: '⊙',
+	'ominus'					: '⊖',
+	'oplus'						: '⊕',
+	'oslash'					: '⊘',
+	'otimes'					: '⊗',
+	'pm'							: '±',
+	'setminus'				: '∖',
+	'sqcap'						: '∏',
+	'sqcup'						: '∐',
+	'star'						: '⋆',
+	'times'						: '×',
+	'triangleleft'		: '⊳',
+	'triangleright'		: '⊲',
+	'uplus'						: '⊎',
+	'vee'							: '∨',
+	'wedge'						: '∧',
+	'wr'							: '≀',
+== LIST: relations == dict ==
+  'approx'     : '≈',
+  'asymp'      : '≍',
+  'bowtie'     : '⋈',
+  'cong'       : '≅',
+  'dashv'      : '⊣',
+  'doteq'      : '≐',
+  'equiv'      : '≡',
+  'ge'         : '≥',
+  'gg'         : '≫',
+  'in'         : '∈',
+  'le'         : '≤',
+  'll'         : '≪',
+  'ni'         : '∋',
+  'parallel'   : '∥',
+  'perp'       : '⊥',
+  'prec'       : '≺',
+  'preceq'     : '≾',
+  'propto'     : '∝',
+  'secceq'     : '≿',
+  'sim'        : '∼',
+  'simeq'      : '≃',
+  'subset'     : '⊂',
+  'subseteq'   : '⊆',
+  'succ'       : '≻',
+  'supset'     : '⊃',
+  'supseteq'   : '⊇',
+  'vdash'      : '⊢',
+== LIST: font_styles == list, bare ==
+mathbb
+mathbf
+mathcal
+mathfrak
+mathit
+mathrm
+mathsf
+mathtt
+== LIST: accents == dict ==
+	'acute'          : 'á',
+	'bar'            : 'ā',
+	'breve'          : 'ă',
+	'check'          : 'ǎ',
+	'ddot'           : 'ä',
+	'dot'            : 'ȧ',
+	'grave'          : 'à',
+	'hat'            : 'â',
+	'mathring'       : 'å',
+	'overbrace'      : '',
+	'overleftarrow'  : '',
+	'overline'       : '',
+	'overrightarrow' : '',
+	'tilde'          : 'ã',
+	'underbrace'     : '',
+	'underline'      : '',
+	'vec'            : '',
+	'widehat'        : '',
+	'widetilde'      : '',
+== LIST: spaces == dict ==
+	'small'  : ',',
+	'medium' : ':',
+	'large'  : ';',
+	'quad'   : 'quad',
+	'qquad'  : 'qquad',
+== ENDLIST ==
+
+== Math.spaces == expandmenu, expandleft:key, expandright:value, insert, map:msp, sc:s ==
+|PickList( 'choose', 'spaces' )|
+\|VALUE|<CURSOR>
+== Math.accents == expandmenu, expandleft:key, expandright:value, insert, map:mac, sc:a ==
+|PickList( 'choose', 'accents' )|
+\|KEY|{<CURSOR>}
+== Math.font styles == expandmenu, insert, map:mfs, sc:s ==
+|PickList( 'choose', 'font_styles' )|
+\|PICK|{<CURSOR>}
+== Math.delimiter == expandmenu, expandleft:key, expandright:value, insert, map:md, sc:d ==
+|PickList( 'choose', 'delimiter' )|
+\|KEY|<CURSOR>
+== Math.functions == expandmenu, insert, map:mf, sc:f ==
+|PickList( 'choose', 'functions' )|
+\|PICK|<CURSOR>
+== Math.Greek lowercase == expandmenu, expandleft:key, expandright:value, insert, map:mgl, sc:g ==
+|PickList( 'choose', 'greek_lowercase' )|
+\|KEY|<CURSOR>
+== Math.Greek uppercase == expandmenu, expandleft:key, expandright:value, insert, map:mgu, sc:g ==
+|PickList( 'choose', 'greek_uppercase' )|
+\|KEY|<CURSOR>
+== Math.operators == expandmenu, expandleft:key, expandright:value, insert, map:mo, sc:o ==
+|PickList( 'choose', 'operators' )|
+\|KEY|<CURSOR>
+== Math.relations == expandmenu, expandleft:key, expandright:value, insert, map:mr, sc:r ==
+|PickList( 'choose', 'relations' )|
+\|KEY|<CURSOR>
+== Math.arrows == expandmenu, expandleft:key, expandright:value, insert, map:mar, sc:a ==
+|PickList( 'choose', 'arrows' )|
+\|KEY|<CURSOR>
+== ENDTEMPLATE ==
+
+§ =============================================================
+§  Math, single menu items
+§ =============================================================
+
+== SEP: Math.sep1 == 
+
+== Math.equation+label == sc:e, map:me, noindent ==
+\begin{equation}
+\label{|?LABEL|}
+<CURSOR><SPLIT>
+\end{equation}
+== Math.eqnarray+label == sc:a, map:mea, noindent ==
+\begin{eqnarray}
+\label{|?LABEL|}
+<CURSOR><SPLIT> & = &  \\
+ & = & 
+\end{eqnarray}
+== Math.matrix == sc:m, map:mm, noindent ==
+	\left(\begin{matrix}
+		<CURSOR> &  \\
+		 & 
+	\end{matrix}\right)
+== ENDTEMPLATE ==
+
+== SEP: Math.sep2 == 
+
+== Math.choose == sc:c, insert, map:mch ==
+{<CURSOR><SPLIT>}\choose{<+k+>}
+== Math.ddot == insert, map:mddt ==
+\ddot{<CURSOR><SPLIT>}
+== Math.dot  == sc:d, insert, map:mdt ==
+\dot{<CURSOR><SPLIT>}
+== Math.frac == sc:f, insert, map:mfr ==
+\frac{<CURSOR><SPLIT>}{<+denominator+>}
+== Math.nth root == sc:n, insert, map:mnr ==
+\sqrt[<CURSOR>]{<SPLIT><-radicand->}
+== Math.prod  == sc:p, insert, map:mpr ==
+\prod_{<CURSOR>}^{<+upperlimit+>}{<SPLIT><-factor->}
+== Math.sqrt == insert, map:msq ==
+\sqrt{<CURSOR><SPLIT>}
+== Math.sum  == sc:s, insert, map:msu ==
+\sum_{<CURSOR>}^{<+upperlimit+>}{<SPLIT><-summand->}
+== Math.vec  == sc:v, insert, map:mve ==
+\vec{<CURSOR><SPLIT>}
+== ENDTEMPLATE ==
+
+== Math.operatorname  == sc:o, insert, map:mon ==
+\operatorname{<CURSOR><SPLIT>}
+== ENDTEMPLATE ==
