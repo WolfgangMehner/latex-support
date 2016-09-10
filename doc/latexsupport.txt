@@ -1,8 +1,8 @@
-*latexsupport.txt*              LaTeX Support                      Aug 21 2016
+*latexsupport.txt*              LaTeX Support                      Sep 08 2016
 
 LaTeX Support                                     *latex-support* *latexsupport*
 
-                             Plug-in version 1.2
+                             Plug-in version 1.3pre
                         for Vim version 7.0 and above
                    Wolfgang Mehner <wolfgang-mehner@web.de>
                       Fritz Mehner <mehner.fritz@web.de>
@@ -338,6 +338,8 @@ This can be changed in the .vimrc file using one of the variables
  let g:Latex_Tex         = 'tex      ... '
  let g:Latex_Pdflatex    = 'pdflatex ... '
  let g:Latex_Pdftex      = 'pdftex   ... '
+ let g:Latex_Lualatex    = 'lualatex ... '
+ let g:Latex_Luatex      = 'luatex   ... '
 <
 The errors a typesetter run will produce will be shown in a quickfix buffer.
 For convenience consider to use maps like
@@ -450,8 +452,8 @@ Legend:  (i) insert mode, (n) normal mode, (v) visual mode
   Text
   -----------------------------------------------------------------
      ´e         environment                     (niv)
-     ´ts        section                         (ni)
      ´to        organization                    (ni)
+     ´ts        section                         (ni)
      ´tld       list environment, description   (ni)
      ´tle       list environment, enumerate     (ni)
      ´tli       list environment, itemize       (ni)
@@ -462,7 +464,8 @@ Legend:  (i) insert mode, (n) normal mode, (v) visual mode
      ´tfs       font size                       (niv)
      ´tq        quotes                          (niv)
      ´tsp       spacing                         (ni)
-     ´ta        line alignment + spacing        (niv)
+     ´tal       line alignment + spacing        (niv)
+     ´tac       accents                         (niv)
      ´ttc       textcomp characters             (ni)
      ´tbi       bibitem                         (ni)
      ´tci       cite                            (ni)
@@ -539,12 +542,16 @@ Legend:  (i) insert mode, (n) normal mode, (v) visual mode
   -----------------------------------------------------------------
      ´rr        save + run typesetter           (ni)
      ´rla       save + run lacheck              (ni)
+     ´re        view errors from bg. process    (ni)
      ´rdvi      view DVI                        (ni)
      ´rpdf      view PDF                        (ni)
      ´rps       view PS                         (ni)
+     ´rc        run a converter                 (ni)
      ´rmi       run makeindex                   (ni)
      ´rbi       run bibtex                      (ni)
-     ´rc        run a converter                 (ni)
+     ´rt        choose the typesetter           (ni)
+     ´rp        method for external processing  (ni)
+     ´rh        hardcopy buffer to postscript   (niv)
      ´rse       show plugin settings            (ni)
 
 
@@ -625,6 +632,8 @@ Several global variables are checked after the plug-in has been loaded to custom
  g:Latex_Tex         'tex      -src-specials -file-line-error -interaction=nonstopmode'
  g:Latex_Pdflatex    'pdflatex -src-specials -file-line-error -interaction=nonstopmode'
  g:Latex_Pdftex      'pdftex   -src-specials -file-line-error -interaction=nonstopmode'
+ g:Latex_Lualatex    'lualatex --file-line-error --interaction=nonstopmode'
+ g:Latex_Luatex      'luatex   --file-line-error --interaction=nonstopmode'
  g:Latex_Bibtex      "bibtex"
 
  g:Latex_DviViewer   "xdvi"
@@ -675,6 +684,7 @@ Several global variables are checked after the plug-in has been loaded to custom
  g:Latex_RootMenu               'LaTe&X'
  g:Latex_TexFlavor              'latex'
  g:Latex_Typesetter             'pdflatex'
+ g:Latex_Processing             'foreground'
 
 The variable root_dir will automatically be set to one of the following values:
   $HOME.'/.vim/'        for Linux/Unix
@@ -693,7 +703,13 @@ The command line used to call the TeX typesetter.
 The command line used to call the pdfLaTeX typesetter.
 
  *g:Latex_Pdftex*
-The command line used to call the pdfTeXtypesetter.
+The command line used to call the pdfTeX typesetter.
+
+ *g:Latex_Lualatex*
+The command line used to call the luaLaTeX typesetter.
+
+ *g:Latex_Luatex*
+The command line used to call the luaTeX typesetter.
 
  *g:Latex_Bibtex*
 The command line used to call bibtex.
@@ -779,6 +795,12 @@ The filetype when starting with an empty file ('latex', 'plaintex')
  *g:Latex_Typesetter*
 The typesetter used by the run command ('rr', Ctrl-F9, or menu item):
 'pdflatex', 'pdftex', 'latex', or 'tex'.
+
+ *g:Latex_Processing*
+The way external programs such as the typesetter are run:
+'foreground' blocks the editor until the external process is done.
+'background' runs the process asynchronously and displays a message once it is
+done. Requires the |+job| feature.
 
 ------------------------------------------------------------------------------
 4.3  THE ROOT MENU                                  *latexsupport-custom-root*

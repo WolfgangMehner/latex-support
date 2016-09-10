@@ -7,9 +7,28 @@ The development happens here:
 [WolfgangMehner/vim-plugins](https://github.com/WolfgangMehner/vim-plugins)
 
 
+Preview Version
+================================================================================
+
+___This is a preview version!___
+
+Notable new features:
+
+- Call external tools via the command-line: `:Latex`, `:LatexCheck`,
+  `:LatexMakeindex`, `:LatexBibtex`.
+- Change the typesetter during runtime using `:LatexTypesetter`.
+- Background processing, enable via `:LatexProcessing`.
+- View errors from background processing in quickfix using `:LatexErrors`.
+
+The background processing relies on the new `+job` feature, which becomes
+available with a patch level of approx. `7.4.2000`.
+
+_Please read the release notes below._
+
+
 --------------------------------------------------------------------------------
 
-README for latex-support.vim (Version 1.2) / August 21 2016
+README for latex-support.vim (Version 1.3pre) / September 04 2016
 ================================================================================
 
   *  INSTALLATION
@@ -184,12 +203,18 @@ Any problems? See the TROUBLESHOOTING section at the end of the help file
 RELEASE NOTES
 ================================================================================
 
-RELEASE NOTES FOR VERSION 1.2
+RELEASE NOTES FOR VERSION 1.3pre
 ----------------------------------------------------------------------
-- Add 'g:Latex_CustomTemplateFile'.
-- Add template personalization file and setup wizard.
-- Change some templates.
-- Add maps to bibtex buffers.
+- Add commands :Latex, :LatexBibtex, :LatexMakeindex, and :LatexCheck to run the
+  external commands.
+- Add command :LatexTypesetter to change the typesetter during runtime.
+- Add command :LatexProcessing to change between foreground and background
+  processing.
+- Add command :LatexErrors and map ´re to view errors from background processing
+  in quickfix.
+- BibTeX errors are recognized by quickfix.
+- New templates.
+- Minor bugfixes.
 
 
 RELEASE NOTES FOR OLDER VERSIONS
