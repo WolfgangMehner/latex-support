@@ -6,7 +6,7 @@
 %%
 %%        Version:  see \Pluginversion
 %%        Created:  02.01.2013
-%%       Revision:  04.09.2016
+%%       Revision:  20.09.2016
 %%
 %%         Author:  Wolfgang Mehner (WM), wolfgang-mehner@web.de
 %%                  Dr. Fritz Mehner (fgm), mehner.fritz@web.de
@@ -122,11 +122,17 @@ Key mappings for Vim and gVim\\
 %%----------------------------------------------------------------------
 \hline
 \multicolumn{2}{|r|}{\textsl{\textbf{D}ocument}}                 \\[1.0ex]
-\hline     \Map{dc}  &  document class              \hfill (n, i, T)\\
+\hline     \Map{dc}  &  documentclass               \hfill (n, i, T)\\
 \hline     \Map{di}  &  indices                     \hfill (n, i, T)\\
 \hline     \Map{dti} &  title                       \hfill (n, i)\\
 \hline     \Map{dbi} &  bibliography                \hfill (n, i)\\
 \hline     \Map{dac} &  addcontentsline             \hfill (n, i)\\
+\hline
+\hline     \Map{dln} &  newlength                   \hfill (n, i)\\
+\hline     \Map{dls} &  setlength                   \hfill (n, i)\\
+\hline     \Map{dla} &  addtolength                 \hfill (n, i)\\
+\hline     \Map{dlp} &  print length                \hfill (n, i)\\
+\hline     \Map{dlt} &  set length to               \hfill (n, i)\\
 \hline
 %
 \end{tabular}\\
@@ -245,7 +251,7 @@ Key mappings for Vim and gVim\\
 \hline  \Map{wls}  & lstset                   \hfill (n, i, T)\\
 \hline
 \hline  \Map{wtt}  & table                    \hfill (n, i, v)\\
-\hline  \Map{wttf} & table, floating          \hfill (n, i, v)\\
+\hline  \Map{wtf}  & table, floating          \hfill (n, i, v)\\
 \hline  \Map{wtg}  & tabbing                  \hfill (n, i)\\
 \hline  \Map{wtr}  & tabular                  \hfill (n, i)\\
 \hline
@@ -260,15 +266,6 @@ Key mappings for Vim and gVim\\
 \hline  \Map{wmp}  & minipage                 \hfill (n, i, v)\\
 \hline  \Map{wbp}  & parbox                   \hfill (n, i, v)\\
 \hline
-%
-\end{tabular}\\
-%%~~~~~ TABULAR :  end  ~~~~~~~~~~
-%
-%%======================================================================
-%%  page 2 / table, middle part      [[[1
-%%======================================================================
-%%~~~~~ TABULAR : begin ~~~~~~~~~~
-\begin{tabular}[]{|p{11mm}|p{62mm}|}
 %%----------------------------------------------------------------------
 %%  Snippets
 %%----------------------------------------------------------------------
@@ -286,6 +283,15 @@ Key mappings for Vim and gVim\\
 \hline \Map{ntw} & template setup wizard     \hfill (n, i)   \\
 \hline \Map{nts} & choose template style     \hfill (n, i, T)\\
 \hline
+%
+\end{tabular}\\
+%%~~~~~ TABULAR :  end  ~~~~~~~~~~
+%
+%%======================================================================
+%%  page 2 / table, middle part      [[[1
+%%======================================================================
+%%~~~~~ TABULAR : begin ~~~~~~~~~~
+\begin{tabular}[]{|p{11mm}|p{62mm}|}
 %%----------------------------------------------------------------------
 %%  menu run
 %%----------------------------------------------------------------------
@@ -293,12 +299,13 @@ Key mappings for Vim and gVim\\
 \multicolumn{2}{|r|}{\textsl{\textbf{R}un}} \\[1.0ex]
 \hline \Map{rr}   & save + run typesetter                    \hfill (n, i)\\
 \hline \Map{rla}  & save + run \texttt{lacheck}              \hfill (n, i)\\
-\hline \Map{re}   & errors from last bg. process             \hfill (n, i)\\
+\hline \Map{re}   & errors from last bg.\ process            \hfill (n, i)\\
 \hline \Map{rdvi} & view DVI                                 \hfill (n, i)\\
 \hline \Map{rpdf} & view PDF                                 \hfill (n, i)\\
 \hline \Map{rps}  & view PS                                  \hfill (n, i)\\
 \hline \Map{rc}   & run a converter                          \hfill (n, i)\\
 \hline
+\hline \Map{rmg}  & run \texttt{makeglossaries}              \hfill (n, i)\\
 \hline \Map{rmi}  & run \texttt{makeindex}                   \hfill (n, i)\\
 \hline \Map{rbi}  & run \texttt{bibtex}                      \hfill (n, i)\\
 \hline
@@ -318,37 +325,52 @@ Key mappings for Vim and gVim\\
 \hline \Map{rmc} & \texttt{make clean}                      \hfill (n, i)   \\
 \hline \Map{rma} & command line arguments for \texttt{make} \hfill (n, i)   \\
 \hline
-\end{tabular}\\
+\end{tabular}\\[2.5ex]
 %%~~~~~ TABULAR :  end  ~~~~~~~~~~
 %
-%%======================================================================
-%%  page 2 / table, right part      [[[1
-%%======================================================================
-%
-\parbox[t][130mm][t]{70mm}{
+\parbox[t][80mm][t]{70mm}{%
 %
 %%----------------------------------------------------------------------
 %%  External Programs
 %%----------------------------------------------------------------------
 \large{\textbf{Run}}\\[1.0ex]
 Run the typesetter or \texttt{lacheck} : \\[1.0ex]
-\texttt{ :Latex [<tex-file>]} \\[1.0ex]
-\texttt{ :LatexCheck [<tex-file>]} \\[1.0ex]
-Run \texttt{makeindex} or \texttt{bibtex} : \\[1.0ex]
-\texttt{ :LatexMakeindex [<idx-file>]} \\[1.0ex]
-\texttt{ :LatexBibtex [<aux-file>]} \\[1.0ex]
+\texttt{:Latex [<tex-file>]} \\[1.0ex]
+\texttt{:LatexCheck [<tex-file>]} \\[1.0ex]
+Run tools like \texttt{makeindex} or \texttt{bibtex} : \\[1.0ex]
+\texttt{:LatexMakeglossaries [<base>]} \\[1.0ex]
+\texttt{:LatexMakeindex [<idx-file>]} \\[1.0ex]
+\texttt{:LatexBibtex [<aux-file>]} \\[1.0ex]
 (the default arguments are derived from the name of the current buffer) \\[2.5ex]
 Get the errors from the last background process: \\[1.0ex]
-\texttt{ :LatexErrors} \\[2.5ex]
+\texttt{:LatexErrors} \\[2.5ex]
+}
+%
+%%======================================================================
+%%  page 2 / table, right part      [[[1
+%%======================================================================
+%
+\parbox[t][130mm][t]{70mm}{%
+%
+%%----------------------------------------------------------------------
+%%  View
+%%----------------------------------------------------------------------
+\large{\textbf{View}}\\[1.0ex]
+View a document of the specified format
+(supports \texttt{dvi}, \texttt{pdf}, and \texttt{ps}): \\[1.0ex]
+\texttt{:LatexView [<format>]} \\[1.0ex]
+\texttt{:LatexView [<format>] <file>} \\[1.0ex]
+\texttt{:LatexView <file> [<format>]} \\[1.0ex]
+(the default filename is derived from the name of the current buffer.) \\[2.5ex]
 %
 %%----------------------------------------------------------------------
 %%  Options
 %%----------------------------------------------------------------------
 \large{\textbf{Options}}\\[1.0ex]
 Print or set the typesetter: \\[1.0ex]
-\texttt{ :LatexTypesetter [<typesetter>]} \\[1.0ex]
+\texttt{:LatexTypesetter [<typesetter>]} \\[1.0ex]
 Print or set the processing method: \\[1.0ex]
-\texttt{ :LatexProcessing [<method>]} \\[1.0ex]
+\texttt{:LatexProcessing [<method>]} \\[1.0ex]
 (both commands support tab-compl.) \\[2.5ex]
 %
 %%----------------------------------------------------------------------
@@ -356,12 +378,12 @@ Print or set the processing method: \\[1.0ex]
 %%----------------------------------------------------------------------
 \large{\textbf{Make}}\\[1.0ex]
 Run \texttt{make} : \\[1.0ex]
-\texttt{ :Make [<args>]} \\[1.0ex]
+\texttt{:Make [<args>]} \\[1.0ex]
 Set the current makefile: \\[1.0ex]
-\texttt{ :MakeFile <file>} \\[1.0ex]
+\texttt{:MakeFile <file>} \\[1.0ex]
 (both commands support tab-compl.) \\[1.0ex]
 Help for the Make Tool: \\[1.0ex]
-\texttt{ :MakeHelp} \\[2.5ex]
+\texttt{:MakeHelp} \\[2.5ex]
 }
 %
 \end{center}%

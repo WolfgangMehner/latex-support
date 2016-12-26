@@ -16,9 +16,9 @@
 "
 "       Version:  see variable g:LatexSupportVersion below.
 "       Created:  27.12.2012
-"      Revision:  03.09.2016
+"      Revision:  26.12.2016
 "       License:  Copyright (c) 2012-2015, Fritz Mehner
-"                 Copyright (c) 2016-2016, Wolfgang Mehner
+"                 Copyright (c) 2016-2017, Wolfgang Mehner
 "                 This program is free software; you can redistribute it and/or
 "                 modify it under the terms of the GNU General Public License as
 "                 published by the Free Software Foundation, version 2 of the
@@ -34,15 +34,18 @@
 " === Basic checks ===   {{{1
 "-------------------------------------------------------------------------------
 
+" need at least 7.0
 if v:version < 700
-  echohl WarningMsg | echo 'plugin latex-support.vim needs Vim version >= 7'| echohl None
-  finish
+	echohl WarningMsg
+	echo 'The plugin latex-support.vim needs Vim version >= 7.'
+	echohl None
+	finish
 endif
-"
-" Prevent duplicate loading:
-"
+
+" prevent duplicate loading
+" need compatible
 if exists("g:LatexSupportVersion") || &cp
- finish
+	finish
 endif
 
 let g:LatexSupportVersion= "1.3pre"                  " version number of this script; do not change
@@ -66,7 +69,7 @@ let g:LatexSupportVersion= "1.3pre"                  " version number of this sc
 
 function! s:ApplyDefaultSetting ( varname, value )
 	if ! exists ( 'g:'.a:varname )
-		exe 'let g:'.a:varname.' = '.string( a:value )
+		let { 'g:'.a:varname } = a:value
 	endif
 endfunction    " ----------  end of function s:ApplyDefaultSetting  ----------
 
@@ -157,8 +160,8 @@ endfunction    " ----------  end of function s:SID  ----------
 
 function! s:UserInput ( prompt, text, ... )
 
-	echohl Search																					" highlight prompt
-	call inputsave()																			" preserve typeahead
+	echohl Search                                         " highlight prompt
+	call inputsave()                                      " preserve typeahead
 	if a:0 == 0 || a:1 == ''
 		let retval = input( a:prompt, a:text )
 	elseif a:1 == 'customlist'
@@ -168,11 +171,11 @@ function! s:UserInput ( prompt, text, ... )
 	else
 		let retval = input( a:prompt, a:text, a:1 )
 	endif
-	call inputrestore()																		" restore typeahead
-	echohl None																						" reset highlighting
+	call inputrestore()                                   " restore typeahead
+	echohl None                                           " reset highlighting
 
-	let retval  = substitute( retval, '^\s\+', "", "" )		" remove leading whitespaces
-	let retval  = substitute( retval, '\s\+$', "", "" )		" remove trailing whitespaces
+	let retval  = substitute( retval, '^\s\+', "", "" )   " remove leading whitespaces
+	let retval  = substitute( retval, '\s\+$', "", "" )   " remove trailing whitespaces
 
 	return retval
 
@@ -666,6 +669,103 @@ function! s:BibtexBeautify () range
 endfunction    " ----------  end of function s:BibtexBeautify ----------
 
 "-------------------------------------------------------------------------------
+" === Wizards ===   {{{1
+"-------------------------------------------------------------------------------
+
+"-------------------------------------------------------------------------------
+" s:WizardTabbing : Wizard for inserting a tabbing.   {{{2
+"-------------------------------------------------------------------------------
+function! s:WizardTabbing()
+
+	" settings
+	let textwidth = 120                           " unit [mm]
+	let n_rows    = 1                             " default number of rows
+	let n_cols    = 2                             " default number of columns
+
+	" user input
+	let param = s:UserInput("rows columns [width [mm]]: ", n_rows." ".n_cols )
+	if param == ""
+		return
+	elseif match( param, '^\s*\d\+\(\s\+\d\+\)\{0,2}\s*$' ) < 0
+		return s:WarningMsg ( 'Wrong input format.' )
+	endif
+
+	" parse the input
+	let paramlist = split( param )
+	if len( paramlist ) >= 1
+		let n_rows  = str2nr( paramlist[0] )
+	endif
+	if len( paramlist ) >= 2
+		let n_cols  = str2nr( paramlist[1 ])
+	endif
+	if len( paramlist ) >= 3
+		let textwidth = paramlist[2]
+	endif
+
+	" generate replacements for all macros and insert the template
+	let n_rows = max( [ n_rows, 1 ] )  " at least 1 row
+	let n_cols = max( [ n_cols, 2 ] )  " at least 2 columns
+
+	let colwidth = textwidth/n_cols
+	let colwidth = max( [ colwidth, 10 ] )
+
+	let ROW_HEAD = repeat ( '\hspace{'.colwidth.'mm} \= ', n_cols )
+	let ROW      = repeat ( ' \> ', n_cols-1 )
+	let ROW_LIST = repeat ( [ ROW ], n_rows )
+
+	call mmtemplates#core#InsertTemplate ( g:Latex_Templates, 'Wizard.tables.tabbing',
+				\ '|ROW_HEAD|', ROW_HEAD, '|ROW|', ROW_LIST, 'placement', 'below' )
+endfunction    " ----------  end of function s:WizardTabbing  ----------
+
+"-------------------------------------------------------------------------------
+" s:WizardTabular : Wizard for inserting a tabular.   {{{2
+"-------------------------------------------------------------------------------
+function! s:WizardTabular()
+
+	" settings
+	let textwidth = 120   " [mm]
+	let n_rows    = 2
+	let n_cols    = 2
+
+	" user input
+	let param = s:UserInput("rows columns [width [mm]]: ", n_rows." ".n_cols )
+	if param == ""
+		return
+	elseif match( param, '^\s*\d\+\(\s\+\d\+\)\{0,2}\s*$' ) < 0
+		return s:WarningMsg ( 'Wrong input format.' )
+	endif
+
+	" parse the input
+	let paramlist = split( param )
+	if len( paramlist ) >= 1
+		let n_rows  = str2nr( paramlist[0] )
+	endif
+	if len( paramlist ) >= 2
+		let n_cols  = str2nr( paramlist[1 ])
+	endif
+	if len( paramlist ) >= 3
+		let textwidth = paramlist[2]
+	endif
+
+	" generate replacements for all macros and insert the template
+	let n_rows = max( [ n_rows, 1 ] )  " at least 1 row
+	let n_cols = max( [ n_cols, 2 ] )  " at least 2 columns
+
+	let colwidth = textwidth/n_cols
+	let colwidth = max( [ colwidth, 10 ] )
+
+	let COLUMNS  = repeat ( 'p{'.colwidth.'mm}', n_cols )
+	let ROW_HEAD = repeat ( ' & ', n_cols-1 )
+	let ROW_LIST = repeat ( [ ROW_HEAD ], n_rows-1 )
+
+	call mmtemplates#core#InsertTemplate ( g:Latex_Templates, 'Wizard.tables.tabular',
+				\ '|COLUMNS|', COLUMNS, '|ROW_HEAD|', ROW_HEAD, '|ROW|', ROW_LIST, 'placement', 'below' )
+endfunction    " ----------  end of function s:WizardTabular  ----------
+
+" }}}2
+"-------------------------------------------------------------------------------
+
+"-------------------------------------------------------------------------------
 " === Background processing facilities ===   {{{1
 "-------------------------------------------------------------------------------
 
@@ -727,8 +827,8 @@ function! s:BackgroundErrors ()
 	" restore current settings
 	let &g:errorformat = errorf_saved
 
-	" open error window if necessary
-	botright cwindow
+	" open error window (always, since the user asked for it)
+	botright copen
 
 	return
 endfunction    " ----------  end of function s:BackgroundErrors  ----------
@@ -810,9 +910,9 @@ endfunction    " ----------  end of function s:Compile ----------
 "-------------------------------------------------------------------------------
 function! s:Bibtex ( args )
 
-	" get the name of the index file
+	" get the root of the name of the current buffer
 	if a:args == ''
-		let aux_file = expand("%:r")                " root of name of the name of the current buffer
+		let aux_file = expand("%:r")
 	else
 		let aux_file = a:args
 	endif
@@ -842,6 +942,32 @@ function! s:Bibtex ( args )
 	botright cwindow
 
 endfunction    " ----------  end of function s:Bibtex ----------
+
+"-------------------------------------------------------------------------------
+" s:Makeglossaries : Run 'makeglossaries'.   {{{1
+"
+" Parameters:
+"   args - command-line arguments (string)
+"-------------------------------------------------------------------------------
+function! s:Makeglossaries ( args )
+
+	if ! executable ( 'makeglossaries' )
+		return s:ErrorMsg ( '"makeglossaries" does not exist or is not executable.' )
+	endif
+
+	" get the root of the name of the current buffer
+	if a:args == ''
+		let aux_file = expand("%:r")
+	else
+		let aux_file = a:args
+	endif
+
+	" run the file
+	exe '!makeglossaries '.shellescape( aux_file )
+	if v:shell_error
+		return s:WarningMsg ( 'makeglossaries reported errors' )
+	endif
+endfunction    " ----------  end of function s:Makeglossaries  ----------
 
 "-------------------------------------------------------------------------------
 " s:Makeindex : Run 'makeindex'.   {{{1
@@ -904,63 +1030,104 @@ function! s:Lacheck ( args )
 	let &l:makeprg     = 'lacheck'
 	let &l:errorformat = '"%f"\, line %l:%m'
 
-	exe "make ".shellescape ( source )
+	let v:statusmsg = ''                          " reset, so we are able to check it below
+	silent exe "make ".shellescape ( source )   | " do not jump to the first error
+	" :TODO:26.11.2016 22:12:WM: using make! here seems to cause v:statusmsg to
+	" never be set to a none-emtpy value
 
 	" restore current settings
 	let &l:makeprg     = makeprg_saved
 	let &l:errorformat = errorf_saved
 
-	" open error window if necessary
-	botright cwindow
+	if empty ( v:statusmsg )
+		redraw                                      " redraw after cclose, before echoing
+		call s:ImportantMsg ( bufname('%').': No warnings.' )
+	else
+		botright cwindow                            " open error window
+	endif
 
 endfunction    " ----------  end of function s:Lacheck ----------
 
 "-------------------------------------------------------------------------------
 " s:View : View a document.   {{{1
 "
-" Perform the conversion s:Latex_ViewerCall[ <format> ] . When the 'format'
-" "choose", the format is chosen according to 's:Latex_Typesetter'.
+" Views a document. The format is guessed from the filename, or specified on
+" the command line. Supports the following calls:
+" :LatexView fmt
+" :LatexView fmt file
+" :LatexView file fmt
+" :LatexView file
+" :LatexView
+"
+" - If no format is specified, it is guessed from the filename.
+" - If no filename is specified, it is guessed from the name of the buffer
+"   and the format.
+" - If neither filename nor format are specified, they are guessed from
+"   the typesetter and the name of the buffer.
 "
 " Parameters:
-"   format - the format 'dvi', pdf, 'ps', or 'choose' (string)
+"   args - the cmd.-line arguments (string)
 "-------------------------------------------------------------------------------
-function! s:View ( format )
+function! s:View ( args )
 
-	if &filetype != 'tex'
-		echomsg 'The filetype of this buffer is not "tex".'
-		return
-	endif
+	let targetfile = ''
+	let format     = ''
 
-	let fmt = a:format
-	if fmt == 'choose'
-		let typesettercall = s:Latex_TypesetterCall[s:Latex_Typesetter]
-		if typesettercall =~ '^pdf'
-			let fmt = 'pdf'
-		else
-			let fmt = 'dvi'
-		endif
-	endif
-
-	let viewer = s:Latex_ViewerCall[fmt]
-	if viewer == '' || !executable( split(viewer)[0] )
-		echomsg 'Viewer '.viewer.' does not exist or its name is not unique.'
-		return
-	endif
-
-	let targetformat = expand("%:r").'.'.fmt
-	if !filereadable( targetformat )
-		if filereadable( expand("%:r").'.dvi' )
-			call s:Conversions( 'dvi-'.fmt )
-		else
-			echomsg 'File "'.targetformat.'" does not exist or is not readable.'
-			return
-		endif
-	endif
-
-	if s:MSWIN
-		silent exe '!start '.viewer.' '.targetformat
+	" analyse the command-line arguments
+	if a:args =~ '^\s*\(dvi\|pdf\|ps\)\s*$'
+		" :LatexView fmt
+		let format = substitute ( a:args, '\s\+', '', 'g' )
+		let targetfile = expand("%:r").'.'.format
+	elseif a:args =~ '^\s*\(dvi\|pdf\|ps\)\s'
+		" :LatexView fmt file
+		let mlist = matchlist ( a:args, '^\s*\(dvi\|pdf\|ps\)\s\+\(.*\)' )
+		let format = mlist[1]
+		let targetfile = mlist[2]
+	elseif a:args =~ '\s\(dvi\|pdf\|ps\)\s*$'
+		" :LatexView file fmt
+		let mlist = matchlist ( a:args, '^\(.\{-}\)\s\+\(dvi\|pdf\|ps\)\s*$' )
+		let targetfile = mlist[1]
+		let format = mlist[2]
+	elseif a:args !~ '^\s*$'
+		" :LatexView file
+		let targetfile = a:args
+		let format = matchstr ( targetfile, '[^.]\+\ze\s*$' )
+		let format = tolower ( format )
 	else
-		silent exe '!'.viewer.' '.targetformat.' &'
+		" :LatexView -empty-
+
+		" guess the format from the typesetter
+		if s:Latex_Typesetter =~ '^pdf' || s:Latex_Typesetter =~ '^lua'
+			let format = 'pdf'
+		else
+			let format = 'dvi'
+		endif
+
+		" get the file
+		let targetfile = expand("%:r").'.'.format
+	endif
+
+	" check the file ...
+	if ! filereadable( targetfile )
+		return s:ErrorMsg ( 'File "'.targetfile.'" does not exist or is not readable.' )
+	endif
+
+	" ... and the format
+	if ! has_key ( s:Latex_ViewerCall, format )
+		return s:ErrorMsg ( 'Filetype "'.format.'" not supported.' )
+	endif
+
+	" get the viewer command
+	let viewer = s:Latex_ViewerCall[format]
+	if viewer == '' || ! executable( split(viewer)[0] )
+		return s:ErrorMsg ( 'Viewer '.viewer.' does not exist or its name is not unique.' )
+	endif
+
+	" run the command
+	if s:MSWIN
+		silent exe '!start '.viewer.' '.targetfile
+	else
+		silent exe '!'.viewer.' '.targetfile.' &'
 	endif
 endfunction    " ----------  end of function s:View ----------
 
@@ -1272,13 +1439,17 @@ function! s:CheckTemplatePersonalization ()
 	"
 endfunction    " ----------  end of function s:CheckTemplatePersonalization  ----------
 
-"===  FUNCTION  ================================================================
-"          NAME:  Latex_JumpForward     {{{1
-"   DESCRIPTION:  Jump to the next target, otherwise behind the current string.
-"    PARAMETERS:  -
-"       RETURNS:  empty string
-"===============================================================================
-function! Latex_JumpForward ()
+"-------------------------------------------------------------------------------
+" s:JumpForward : Jump to the next target.   {{{1
+"
+" If no target is found, jump behind the current string
+"
+" Parameters:
+"   -
+" Returns:
+"   empty sting
+"-------------------------------------------------------------------------------
+function! s:JumpForward ()
   let match	= search( s:Latex_TemplateJumpTarget, 'c' )
 	if match > 0
 		" remove the target
@@ -1289,8 +1460,8 @@ function! Latex_JumpForward ()
 		normal! l
 	endif
 	return ''
-endfunction    " ----------  end of function Latex_JumpForward  ----------
-"
+endfunction    " ----------  end of function s:JumpForward  ----------
+
 "===  FUNCTION  ================================================================
 "          NAME:  Latex_CodeSnippet     {{{1
 "   DESCRIPTION:  read / write / edit code sni
@@ -1435,20 +1606,14 @@ function! s:CreateAdditionalLatexMaps ()
 	"-------------------------------------------------------------------------------
 	" wizard
 	"-------------------------------------------------------------------------------
-	nnoremap    <buffer>  <silent> <LocalLeader>wtg       :call Latex_Tabbing()<CR>k0a
-	inoremap    <buffer>  <silent> <LocalLeader>wtg  <C-C>:call Latex_Tabbing()<CR>k0a
-	nnoremap    <buffer>  <silent> <LocalLeader>wtr       :call Latex_Tabular()<CR>3k0a
-	inoremap    <buffer>  <silent> <LocalLeader>wtr  <C-C>:call Latex_Tabular()<CR>3k0a
+	nnoremap    <buffer>  <silent> <LocalLeader>wtg       :call <SID>WizardTabbing()<CR>
+	inoremap    <buffer>  <silent> <LocalLeader>wtg  <C-C>:call <SID>WizardTabbing()<CR>
+	nnoremap    <buffer>  <silent> <LocalLeader>wtr       :call <SID>WizardTabular()<CR>
+	inoremap    <buffer>  <silent> <LocalLeader>wtr  <C-C>:call <SID>WizardTabular()<CR>
 
 	"-------------------------------------------------------------------------------
 	" run
 	"-------------------------------------------------------------------------------
-   noremap  <buffer>            <C-F9>                  :call <SID>Compile("")<CR><CR>
-  inoremap  <buffer>            <C-F9>             <Esc>:call <SID>Compile("")<CR><CR>
-  vnoremap  <buffer>            <C-F9>             <Esc>:call <SID>Compile("")<CR><CR>
-   noremap  <buffer>            <M-F9>                  :call <SID>View('choose')<CR><CR>
-  inoremap  <buffer>            <M-F9>             <Esc>:call <SID>View('choose')<CR><CR>
-  vnoremap  <buffer>            <M-F9>             <Esc>:call <SID>View('choose')<CR><CR>
    noremap  <buffer>  <silent>  <LocalLeader>rr         :call <SID>Compile("")<CR><CR>
   inoremap  <buffer>  <silent>  <LocalLeader>rr    <C-C>:call <SID>Compile("")<CR><CR>
   vnoremap  <buffer>  <silent>  <LocalLeader>rr    <C-C>:call <SID>Compile("")<CR><CR>
@@ -1469,6 +1634,9 @@ function! s:CreateAdditionalLatexMaps ()
   inoremap  <buffer>  <silent>  <LocalLeader>rps   <C-C>:call <SID>View("ps" )<CR>
   vnoremap  <buffer>  <silent>  <LocalLeader>rps   <C-C>:call <SID>View("ps" )<CR>
 
+   noremap  <buffer>  <silent>  <LocalLeader>rmg        :call <SID>Makeglossaries("")<CR>
+  inoremap  <buffer>  <silent>  <LocalLeader>rmg   <C-C>:call <SID>Makeglossaries("")<CR>
+  vnoremap  <buffer>  <silent>  <LocalLeader>rmg   <C-C>:call <SID>Makeglossaries("")<CR>
    noremap  <buffer>  <silent>  <LocalLeader>rmi        :call <SID>Makeindex("")<CR>
   inoremap  <buffer>  <silent>  <LocalLeader>rmi   <C-C>:call <SID>Makeindex("")<CR>
   vnoremap  <buffer>  <silent>  <LocalLeader>rmi   <C-C>:call <SID>Makeindex("")<CR>
@@ -1524,8 +1692,8 @@ function! s:CreateAdditionalLatexMaps ()
 	"-------------------------------------------------------------------------------
 	" templates
 	"-------------------------------------------------------------------------------
-	nnoremap  <buffer>  <silent>  <C-j>       i<C-R>=Latex_JumpForward()<CR>
-	inoremap  <buffer>  <silent>  <C-j>  <C-G>u<C-R>=Latex_JumpForward()<CR>
+	nnoremap  <buffer>  <silent>  <C-j>       i<C-R>=<SID>JumpForward()<CR>
+	inoremap  <buffer>  <silent>  <C-j>  <C-G>u<C-R>=<SID>JumpForward()<CR>
 	"
 	" ----------------------------------------------------------------------------
 	"
@@ -1594,6 +1762,9 @@ function! s:CreateAdditionalBibtexMaps ()
   inoremap  <buffer>  <silent>  <LocalLeader>re    <C-C>:call <SID>BackgroundErrors()<CR>
   vnoremap  <buffer>  <silent>  <LocalLeader>re    <C-C>:call <SID>BackgroundErrors()<CR>
 
+   noremap  <buffer>  <silent>  <LocalLeader>rmg        :call <SID>Makeglossaries("")<CR>
+  inoremap  <buffer>  <silent>  <LocalLeader>rmg   <C-C>:call <SID>Makeglossaries("")<CR>
+  vnoremap  <buffer>  <silent>  <LocalLeader>rmg   <C-C>:call <SID>Makeglossaries("")<CR>
    noremap  <buffer>  <silent>  <LocalLeader>rmi        :call <SID>Makeindex("")<CR>
   inoremap  <buffer>  <silent>  <LocalLeader>rmi   <C-C>:call <SID>Makeindex("")<CR>
   vnoremap  <buffer>  <silent>  <LocalLeader>rmi   <C-C>:call <SID>Makeindex("")<CR>
@@ -1637,8 +1808,8 @@ function! s:CreateAdditionalBibtexMaps ()
 	"-------------------------------------------------------------------------------
 	" templates
 	"-------------------------------------------------------------------------------
-	nnoremap  <buffer>  <silent>  <C-j>       i<C-R>=Latex_JumpForward()<CR>
-	inoremap  <buffer>  <silent>  <C-j>  <C-G>u<C-R>=Latex_JumpForward()<CR>
+	nnoremap  <buffer>  <silent>  <C-j>       i<C-R>=<SID>JumpForward()<CR>
+	inoremap  <buffer>  <silent>  <C-j>  <C-G>u<C-R>=<SID>JumpForward()<CR>
 	"
 	" ----------------------------------------------------------------------------
 	"
@@ -1734,13 +1905,12 @@ function! s:InitMenus()
 	let ihead = 'inoremenu <silent> '.s:Latex_RootMenu.'.&Wizard.'
 	let vhead = 'vnoremenu <silent> '.s:Latex_RootMenu.'.&Wizard.'
 
- 	exe ahead.'tables.tabbing<Tab>'.esc_mapl.'wtg                     :call Latex_Tabbing()<CR>k0a'
- 	exe ihead.'tables.tabbing<Tab>'.esc_mapl.'wtg                <C-C>:call Latex_Tabbing()<CR>k0a'
- 	exe ahead.'tables.tabular<Tab>'.esc_mapl.'wtr                     :call Latex_Tabular()<CR>3k0a'
- 	exe ihead.'tables.tabular<Tab>'.esc_mapl.'wtr                <C-C>:call Latex_Tabular()<CR>3k0a'
+	exe ahead.'tables.tabbing<Tab>'.esc_mapl.'wtg                     :call <SID>WizardTabbing()<CR>'
+	exe ihead.'tables.tabbing<Tab>'.esc_mapl.'wtg                <C-C>:call <SID>WizardTabbing()<CR>'
+	exe ahead.'tables.tabular<Tab>'.esc_mapl.'wtr                     :call <SID>WizardTabular()<CR>'
+	exe ihead.'tables.tabular<Tab>'.esc_mapl.'wtr                <C-C>:call <SID>WizardTabular()<CR>'
 
-	exe ahead.'li&gatures.ligatures<Tab>LaTeX                      <Nop>'
-	exe ahead.'li&gatures.-SEP3-                       :'
+	call mmtemplates#core#CreateMenus ( 'g:Latex_Templates', s:Latex_RootMenu, 'sub_menu', 'Wizard.li&gatures', 'priority', 600 )
 	exe ahead.'li&gatures.find\ double       <C-C>:/f[filt]<CR>'
 	exe ahead.'li&gatures.find\ triple       <C-C>:/ff[filt]<CR>'
 	exe ahead.'li&gatures.split\ with\ \\\/  <C-C>a\/<Esc>'
@@ -1754,8 +1924,8 @@ function! s:InitMenus()
 	let ihead = 'imenu <silent> '.s:Latex_RootMenu.'.&Run.'
 	let vhead = 'vmenu <silent> '.s:Latex_RootMenu.'.&Run.'
 
-	exe ahead.'save\ +\ &run\ typesetter<Tab>'.esc_mapl.'rr\ <C-F9>       :call <SID>Compile("")<CR><CR>'
-	exe ihead.'save\ +\ &run\ typesetter<Tab>'.esc_mapl.'rr\ <C-F9>  <C-C>:call <SID>Compile("")<CR><CR>'
+	exe ahead.'save\ +\ &run\ typesetter<Tab>'.esc_mapl.'rr       :call <SID>Compile("")<CR><CR>'
+	exe ihead.'save\ +\ &run\ typesetter<Tab>'.esc_mapl.'rr  <C-C>:call <SID>Compile("")<CR><CR>'
 
 	exe ahead.'save\ +\ &run\ lacheck<Tab>'.esc_mapl.'rla       :call <SID>Lacheck("")<CR><CR>'
 	exe ihead.'save\ +\ &run\ lacheck<Tab>'.esc_mapl.'rla  <C-C>:call <SID>Lacheck("")<CR><CR>'
@@ -1763,8 +1933,7 @@ function! s:InitMenus()
 	exe ahead.'view\ last\ &errors<Tab>'.esc_mapl.'re           :call <SID>BackgroundErrors()<CR>'
 	exe ihead.'view\ last\ &errors<Tab>'.esc_mapl.'re      <C-C>:call <SID>BackgroundErrors()<CR>'
 
-	exe ahead.'&View.View<Tab>LaTeX                 :echo "This is a menu header."<CR>'
-	exe ahead.'View.-SEP1-                          :'
+	call mmtemplates#core#CreateMenus ( 'g:Latex_Templates', s:Latex_RootMenu, 'sub_menu', 'Run'.'.&View' )
 	exe ahead.'View.&DVI<Tab>'.esc_mapl.'rdvi       :call <SID>View("dvi")<CR>'
 	exe ihead.'View.&DVI<Tab>'.esc_mapl.'rdvi  <C-C>:call <SID>View("dvi")<CR>'
 	exe ahead.'View.&PDF<Tab>'.esc_mapl.'rpdf       :call <SID>View("pdf")<CR>'
@@ -1772,8 +1941,7 @@ function! s:InitMenus()
 	exe ahead.'View.&PS<Tab>'.esc_mapl.'rps         :call <SID>View("ps" )<CR>'
 	exe ihead.'View.&PS<Tab>'.esc_mapl.'rps    <C-C>:call <SID>View("ps" )<CR>'
 
-	exe ahead.'&Convert<Tab>'.esc_mapl.'rc.Convert<Tab>LaTeX  :echo "This is a menu header."<CR>'
-	exe ahead.'Convert.-SEP1-                                 :'
+	call mmtemplates#core#CreateMenus ( 'g:Latex_Templates', s:Latex_RootMenu, 'sub_menu', 'Run'.'.&Convert<TAB>'.esc_mapl.'rc' )
 	exe ahead.'Convert.DVI->PDF                               :call <SID>Conversions( "dvi-pdf")<CR>'
 	exe ahead.'Convert.DVI->PS                                :call <SID>Conversions( "dvi-ps" )<CR>'
 	exe ahead.'Convert.DVI->PNG                               :call <SID>Conversions( "dvi-png")<CR>'
@@ -1781,6 +1949,8 @@ function! s:InitMenus()
 	exe ahead.'Convert.PS->PDF                                :call <SID>Conversions( "ps-pdf" )<CR>'
 
 	exe ahead.'-SEP1-                            :'
+	exe ahead.'run\ make&glossaries<Tab>'.esc_mapl.'rmg                  :call <SID>Makeglossaries("")<CR>'
+	exe ihead.'run\ make&glossaries<Tab>'.esc_mapl.'rmg             <C-C>:call <SID>Makeglossaries("")<CR>'
 	exe ahead.'run\ make&index<Tab>'.esc_mapl.'rmi                       :call <SID>Makeindex("")<CR>'
 	exe ihead.'run\ make&index<Tab>'.esc_mapl.'rmi                  <C-C>:call <SID>Makeindex("")<CR>'
 	exe ahead.'run\ &bibtex<Tab>'.esc_mapl.'rbi                          :call <SID>Bibtex("")<CR>'
@@ -2011,128 +2181,6 @@ function! Latex_Hardcopy (mode)
 	exe  ':set printheader='.escape( old_printheader, ' %' )
 endfunction   " ---------- end of function  Latex_Hardcopy  ----------
 
-"------------------------------------------------------------------------------
-"  build new string from repetition of a given string
-"  1. parameter : given string
-"  2. parameter : repetition count
-"  3. parameter : head (optional)
-"  4. parameter : tail (optional)
-"------------------------------------------------------------------------------
-function! s:repeat_string ( string, n, ... )
-	let result	= ''
-	if a:0 >= 1
-		let result	= a:1                           " start with the head
-	endif
-	for n in range( 1, a:n )
-		let result	.= a:string
-	endfor
-	if a:0 == 2
-		let result	.= a:2                          " append the tail
-	endif
-	return result
-endfunction    " ----------  end of function repeat_string  ----------
-"
-"------------------------------------------------------------------------------
-"  Wizard : tabbing
-"------------------------------------------------------------------------------
-function! Latex_Tabbing()
-	let TextWidth   = 120                         " unit [mm]
-	let RowInput    = '1'                         " default number of rows
-	let ColInput    = '2'                         " default number of columns
-	let param       = s:UserInput("rows columns [width [mm]]: ", RowInput." ".ColInput )
-	if param == ""
-		return
-	endif
-	if match( param, '^\s*\d\+\(\s\+\d\+\)\{0,2}\s*$' ) < 0
-		echomsg " Wrong input format."
-		return
-	endif
-
-	let paramlist		= split( param )
-	if len( paramlist ) >= 1
-		let	RowInput	= paramlist[0]
-	endif
-	if len( paramlist ) >= 2
-		let	ColInput	= paramlist[1]
-	endif
-	if len( paramlist ) >= 3
-		let	TextWidth	= paramlist[2]
-	endif
-
-	let Rows  = str2nr(RowInput)
-	let Rows  = max( [ Rows, 1 ] )              " at least 1 row
-	let Cols  = str2nr(ColInput)
-	let Cols  = max( [ Cols, 2 ] )              " at least 2 columns
-
-	let zz		=  "\%\%----- TABBING : begin ----------\n\\begin{tabbing}\n"
-	let colwidth		= TextWidth/Cols
-	let colwidth		= max( [ colwidth, 10 ] )
-	"
-	" build head line
-	let	zz	=	s:repeat_string( "\\hspace{".colwidth."mm} \\= ", Cols, zz, "\\kill\n" )
-	"
-	" build a single row
-	let	row	=	s:repeat_string( " \\> ", Cols-1, " ", " \\\\\n" )
-	"
-	" generate all rows
-	let zz	= s:repeat_string( row, Rows, zz )
-	let zz	.= "\\end{tabbing}\n\%\%----- TABBING :  end  ----------\n"
-	put =zz
-	silent exe "normal! ".Rows."k"
-endfunction    " ----------  end of function Latex_Tabbing  ----------
-"
-"------------------------------------------------------------------------------
-"  Wizard : tabular
-"------------------------------------------------------------------------------
-function! Latex_Tabular()
-	let TextWidth   = 120   " [mm]
-	let RowInput    = "2"
-	let ColInput    = "2"
-	let param       = s:UserInput("rows columns [width [mm]]: ", RowInput." ".ColInput )
-	if param == ""
-		return
-	endif
-	if match( param, '^\s*\d\+\(\s\+\d\+\)\{0,2}\s*$' ) < 0
-		echomsg " Wrong input format."
-		return
-	endif
-
-	let paramlist		= split( param )
-	if len( paramlist ) >= 1
-		let	RowInput	= paramlist[0]
-	endif
-	if len( paramlist ) >= 2
-		let	ColInput	= paramlist[1]
-	endif
-	if len( paramlist ) >= 3
-		let	TextWidth	= paramlist[2]
-	endif
-
-	let Rows  		= str2nr(RowInput)
-	let Rows  		= max( [ Rows, 1 ] )  " at least 1 row
-	let Cols  		= str2nr(ColInput)
-	let Cols  		= max( [ Cols, 2 ] )  " at least 2 columns
-
-	let colwidth	= TextWidth/Cols
-	let colwidth	= max( [ colwidth, 10 ] )
-
-	let zz	= "\%\%----- TABULAR : begin ----------\n\\begin{tabular}[]{"
-	let	zz = s:repeat_string( "p{".colwidth."mm}", Cols, zz, "}\n" )
-	"
-	" build a single row
-	let	row	=	s:repeat_string( ' & ', Cols-1, ' ', " \\\\\n" )
-
-	let zz	.= "\\hline\n".row."\\hline\n"
-	"
-	" generate all rows
-	let	zz	= s:repeat_string( row, Rows-1, zz )
-	let zz	.= "\\hline\n"
-	let zz	.= "\\end{tabular}\\\\\n"
-	let zz	.= "\%\%----- TABULAR :  end  ----------\n"
-	put =zz
-	silent exe "normal! ".Rows."k"
-endfunction    " ----------  end of function Latex_Tabular  ----------
-
 "-------------------------------------------------------------------------------
 " === Setup: Templates, toolbox and menus ===   {{{1
 "-------------------------------------------------------------------------------
@@ -2159,10 +2207,12 @@ if s:Latex_LoadMenus == 'yes' && s:Latex_CreateMenusDelayed == 'no'
 endif
 
 " user defined commands (working everywhere)
-command! -nargs=? -complete=file                       Latex            call <SID>Compile(<q-args>)
-command! -nargs=? -complete=file                       LatexBibtex      call <SID>Bibtex(<q-args>)
-command! -nargs=? -complete=file                       LatexMakeindex   call <SID>Makeindex(<q-args>)
-command! -nargs=? -complete=file                       LatexCheck       call <SID>Lacheck(<q-args>)
+command! -nargs=? -complete=file                       Latex                call <SID>Compile(<q-args>)
+command! -nargs=? -complete=file                       LatexBibtex          call <SID>Bibtex(<q-args>)
+command! -nargs=? -complete=file                       LatexCheck           call <SID>Lacheck(<q-args>)
+command! -nargs=? -complete=file                       LatexMakeglossaries  call <SID>Makeglossaries(<q-args>)
+command! -nargs=? -complete=file                       LatexMakeindex       call <SID>Makeindex(<q-args>)
+command! -nargs=* -complete=file                       LatexView            call <SID>View(<q-args>)
 
 command! -nargs=0                                      LatexErrors      call <SID>BackgroundErrors()
 

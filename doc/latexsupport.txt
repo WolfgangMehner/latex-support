@@ -1,4 +1,4 @@
-*latexsupport.txt*              LaTeX Support                      Sep 08 2016
+*latexsupport.txt*              LaTeX Support                      Nov 30 2016
 
 LaTeX Support                                     *latex-support* *latexsupport*
 
@@ -525,7 +525,7 @@ Legend:  (i) insert mode, (n) normal mode, (v) visual mode
      ´wlil      lstinputlisting                 (ni)
      ´nls       lstset                          (ni)
      ´wtt       table                           (niv)
-     ´wttf      table, floating                 (niv)
+     ´wtf       table, floating                 (niv)
      ´wtg       tabbing                         (ni)
      ´wtr       tabular                         (ni)
      ´wf        figure                          (ni)
@@ -547,6 +547,7 @@ Legend:  (i) insert mode, (n) normal mode, (v) visual mode
      ´rpdf      view PDF                        (ni)
      ´rps       view PS                         (ni)
      ´rc        run a converter                 (ni)
+     ´rmg       run makeglossaries              (ni)
      ´rmi       run makeindex                   (ni)
      ´rbi       run bibtex                      (ni)
      ´rt        choose the typesetter           (ni)
@@ -568,11 +569,22 @@ Legend:  (i) insert mode, (n) normal mode, (v) visual mode
 3.  FUNCTION KEYS                                 *latexsupport-function-keys*
 ==============================================================================
 
-The following function keys are defined in normal, visual and insert mode:
+Additional maps can be defined by the user, using the ex-commands :Latex,
+:LatexCheck, :LatexView, ...
+To define the following function keys in normal, visual, and insert mode:
 
-    Ctrl-F9   run typesetter (see )
-     Alt-F9   run viewer     (see )
+    Ctrl-F9   run typesetter
+     Alt-F9   run viewer
 
+Add these lines to your Latex filetype plug-in: >
+
+  nnoremap   <buffer>   <C-F9>        :Latex<CR>
+  inoremap   <buffer>   <C-F9>   <Esc>:Latex<CR>
+  vnoremap   <buffer>   <C-F9>   <Esc>:Latex<CR>
+  nnoremap   <buffer>   <A-F9>        :LatexView<CR>
+  inoremap   <buffer>   <A-F9>   <Esc>:LatexView<CR>
+  vnoremap   <buffer>   <A-F9>   <Esc>:LatexView<CR>
+<
 
 ==============================================================================
 4.  CUSTOMIZATION                                 *latexsupport-customization*
@@ -793,7 +805,7 @@ The name of the plug-in root menu.
 The filetype when starting with an empty file ('latex', 'plaintex') 
 
  *g:Latex_Typesetter*
-The typesetter used by the run command ('rr', Ctrl-F9, or menu item):
+The typesetter used by the run command ('<mapleader>rr', or menu item):
 'pdflatex', 'pdftex', 'latex', or 'tex'.
 
  *g:Latex_Processing*
