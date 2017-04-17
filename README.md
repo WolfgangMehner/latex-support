@@ -19,6 +19,8 @@ Notable new features:
 - Change the typesetter during runtime using `:LatexTypesetter`.
 - Background processing, enable via `:LatexProcessing`.
 - View errors from background processing in quickfix using `:LatexErrors`.
+- Add maps for BibTeX buffers. The maps for the Comment, Text, and BibTeX
+  templates now are available when editing BibTeX.
 
 The background processing relies on the new `+job` feature, which becomes
 available with a patch level of approx. `7.4.2000`.
@@ -28,7 +30,7 @@ _Please read the release notes below._
 
 --------------------------------------------------------------------------------
 
-README for latex-support.vim (Version 1.3pre) / December 26 2016
+README for latex-support.vim (Version 1.3alpha) / January 27 2017
 ================================================================================
 
   *  INSTALLATION
@@ -203,7 +205,7 @@ Any problems? See the TROUBLESHOOTING section at the end of the help file
 RELEASE NOTES
 ================================================================================
 
-RELEASE NOTES FOR VERSION 1.3pre
+RELEASE NOTES FOR VERSION 1.3alpha
 ----------------------------------------------------------------------
 - Add commands :Latex, :LatexBibtex, :LatexMakeindex, and :LatexCheck to run the
   external commands.
@@ -214,9 +216,9 @@ RELEASE NOTES FOR VERSION 1.3pre
 - Add command :LatexErrors and map ´re to view errors from background processing
   in quickfix.
 - Add command :LatexMakeglossaries to run 'makeglossaries'.
-- Move the definition of the maps 'CTRL+F9' and 'ALT+F9' to the filetype plug-in.
+- Move the definition of the maps 'F9' and 'CTRL+F9' to the filetype plug-in.
 - BibTeX errors are recognized by quickfix.
-- Improve templates.
+- Improve templates. (Includes the removal of some templates!)
 - Minor bugfixes.
 
 
