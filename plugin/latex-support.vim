@@ -16,7 +16,7 @@
 "
 "       Version:  see variable g:LatexSupportVersion below.
 "       Created:  27.12.2012
-"      Revision:  27.01.2017
+"      Revision:  07.02.2018
 "       License:  Copyright (c) 2012-2015, Fritz Mehner
 "                 Copyright (c) 2016-2017, Wolfgang Mehner
 "                 This program is free software; you can redistribute it and/or
@@ -161,6 +161,71 @@ function! s:Redraw ( cmd_term, cmd_gui )
 endfunction    " ----------  end of function s:Redraw  ----------
 
 "-------------------------------------------------------------------------------
+" s:ShellParseArgs : Turn cmd.-line arguments into a list.   {{{2
+"
+" Parameters:
+"   line - the command-line arguments to parse (string)
+" Returns:
+"   list - the arguments as a list (list)
+"-------------------------------------------------------------------------------
+
+function! s:ShellParseArgs ( line )
+
+	let list = []
+	let curr = ''
+
+	let line = a:line
+
+	while line != ''
+
+		if match ( line, '^\s' ) != -1
+			" non-escaped space -> finishes current argument
+			let line = matchstr ( line, '^\s\+\zs.*' )
+			if curr != ''
+				call add ( list, curr )
+				let curr = ''
+			endif
+		elseif match ( line, "^'" ) != -1
+			" start of a single-quoted string, parse past next single quote
+			let mlist = matchlist ( line, "^'\\([^']*\\)'\\(.*\\)" )
+			if empty ( mlist )
+				throw "ShellParseArgs:Syntax:no matching quote '"
+			endif
+			let curr .= mlist[1]
+			let line  = mlist[2]
+		elseif match ( line, '^"' ) != -1
+			" start of a double-quoted string, parse past next double quote
+			let mlist = matchlist ( line, '^"\(\%([^\"]\|\\.\)*\)"\(.*\)' )
+			if empty ( mlist )
+				throw 'ShellParseArgs:Syntax:no matching quote "'
+			endif
+			let curr .= substitute ( mlist[1], '\\\([\"]\)', '\1', 'g' )
+			let line  = mlist[2]
+		elseif match ( line, '^\\' ) != -1
+			" escape sequence outside of a string, parse one additional character
+			let mlist = matchlist ( line, '^\\\(.\)\(.*\)' )
+			if empty ( mlist )
+				throw 'ShellParseArgs:Syntax:single backspace \'
+			endif
+			let curr .= mlist[1]
+			let line  = mlist[2]
+		else
+			" otherwise parse up to next space
+			let mlist = matchlist ( line, '^\(\S\+\)\(.*\)' )
+			let curr .= mlist[1]
+			let line  = mlist[2]
+		endif
+	endwhile
+
+	" add last argument
+	if curr != ''
+		call add ( list, curr )
+	endif
+
+	return list
+endfunction    " ----------  end of function s:ShellParseArgs  ----------
+
+"-------------------------------------------------------------------------------
 " s:SID : Return the <SID>.   {{{2
 "
 " Parameters:
@@ -241,6 +306,199 @@ endfunction    " ----------  end of function s:WarningMsg  ----------
 "-------------------------------------------------------------------------------
 
 "-------------------------------------------------------------------------------
+" === Common functions ===   {{{1
+"-------------------------------------------------------------------------------
+
+"-------------------------------------------------------------------------------
+" s:CodeSnippet : Code snippets.   {{{2
+"
+" Parameters:
+"   action - "insert", "create", "vcreate", "view", or "edit" (string)
+" Returns:
+"   -
+"-------------------------------------------------------------------------------
+function! s:CodeSnippet ( action )
+
+	"-------------------------------------------------------------------------------
+	" setup
+	"-------------------------------------------------------------------------------
+
+	" the snippet directory
+	let cs_dir    = s:Latex_CodeSnippets
+	let cs_browse = s:Latex_GuiSnippetBrowser
+
+	" check directory
+	if ! isdirectory ( cs_dir )
+		return s:ErrorMsg (
+					\ 'Code snippet directory '.cs_dir.' does not exist.',
+					\ '(Please create it.)' )
+	endif
+
+	" save option 'browsefilter'
+	if has( 'browsefilter' ) && exists( 'b:browsefilter' )
+		let browsefilter_save = b:browsefilter
+		let b:browsefilter    = '*'
+	endif
+
+	"-------------------------------------------------------------------------------
+	" do action
+	"-------------------------------------------------------------------------------
+
+	if a:action == 'insert'
+
+		"-------------------------------------------------------------------------------
+		" action "insert"
+		"-------------------------------------------------------------------------------
+
+		" select file
+		if has('browse') && cs_browse == 'gui'
+			let snippetfile = browse ( 0, 'insert a code snippet', cs_dir, '' )
+		else
+			let snippetfile = s:UserInput ( 'insert snippet ', cs_dir, 'file' )
+		endif
+
+		" insert snippet
+		if filereadable(snippetfile)
+			let linesread = line('$')
+
+			let old_cpoptions = &cpoptions            " prevent the alternate buffer from being set to this files
+			setlocal cpoptions-=a
+
+			exe 'read '.snippetfile
+
+			let &cpoptions = old_cpoptions            " restore previous options
+
+			let linesread = line('$') - linesread - 1 " number of lines inserted
+
+			" indent lines
+			if linesread >= 0 && match( snippetfile, '\.\(ni\|noindent\)$' ) < 0
+				silent exe 'normal! ='.linesread.'+'
+			endif
+		endif
+
+		" delete first line if empty
+		if line('.') == 2 && getline(1) =~ '^$'
+			silent exe ':1,1d'
+		endif
+
+	elseif a:action == 'create' || a:action == 'vcreate'
+
+		"-------------------------------------------------------------------------------
+		" action "create" or "vcreate"
+		"-------------------------------------------------------------------------------
+
+		" select file
+		if has('browse') && cs_browse == 'gui'
+			let snippetfile = browse ( 1, 'create a code snippet', cs_dir, '' )
+		else
+			let snippetfile = s:UserInput ( 'create snippet ', cs_dir, 'file' )
+		endif
+
+		" create snippet
+		if ! empty( snippetfile )
+			" new file or overwrite?
+			if ! filereadable( snippetfile ) || confirm( 'File '.snippetfile.' exists! Overwrite? ', "&Cancel\n&No\n&Yes" ) == 3
+				if a:action == 'create' && confirm( 'Write whole file as a snippet? ', "&Cancel\n&No\n&Yes" ) == 3
+					exe 'write! '.fnameescape( snippetfile )
+				elseif a:action == 'vcreate'
+					exe "'<,'>write! ".fnameescape( snippetfile )
+				endif
+			endif
+		endif
+
+	elseif a:action == 'view' || a:action == 'edit'
+
+		"-------------------------------------------------------------------------------
+		" action "view" or "edit"
+		"-------------------------------------------------------------------------------
+		if a:action == 'view' | let saving = 0
+		else                  | let saving = 1 | endif
+
+		" select file
+		if has('browse') && cs_browse == 'gui'
+			let snippetfile = browse ( saving, a:action.' a code snippet', cs_dir, '' )
+		else
+			let snippetfile = s:UserInput ( a:action.' snippet ', cs_dir, 'file' )
+		endif
+
+		" open file
+		if ! empty( snippetfile )
+			exe 'split | '.a:action.' '.fnameescape( snippetfile )
+		endif
+	else
+		call s:ErrorMsg ( 'Unknown action "'.a:action.'".' )
+	endif
+
+	"-------------------------------------------------------------------------------
+	" wrap up
+	"-------------------------------------------------------------------------------
+
+	" restore option 'browsefilter'
+	if has( 'browsefilter' ) && exists( 'b:browsefilter' )
+		let b:browsefilter = browsefilter_save
+	endif
+
+endfunction   " ----------  end of function s:CodeSnippet  ----------
+
+"-------------------------------------------------------------------------------
+" s:Hardcopy : Generate PostScript document from current buffer.   {{{2
+"
+" Under windows, display the printer dialog.
+"
+" Parameters:
+"   mode - "n" : print complete buffer, "v" : print marked area (string)
+" Returns:
+"   -
+"-------------------------------------------------------------------------------
+function! s:Hardcopy ( mode )
+
+	let outfile = expand("%:t")
+
+	" check the buffer
+	if ! s:MSWIN && empty ( outfile )
+		return s:ImportantMsg ( 'The buffer has no filename.' )
+	endif
+
+	" save current settings
+	let printheader_saved = &g:printheader
+
+	let &g:printheader = g:Latex_Printheader
+
+	if s:MSWIN
+		" we simply call hardcopy, which will open the systems printing dialog
+		if a:mode == 'n'
+			silent exe  'hardcopy'
+		elseif a:mode == 'v'
+			silent exe  "'<,'>hardcopy"
+		endif
+	else
+
+		" directory to print to
+		let outdir = getcwd()
+		if filewritable ( outdir ) != 2
+			let outdir = $HOME
+		endif
+
+		let psfile = outdir.'/'.outfile.'.ps'
+
+		if a:mode == 'n'
+			silent exe  'hardcopy > '.psfile
+			call s:ImportantMsg ( 'file "'.outfile.'" printed to "'.psfile.'"' )
+		elseif a:mode == 'v'
+			silent exe  "'<,'>hardcopy > ".psfile
+			call s:ImportantMsg ( 'file "'.outfile.'" (lines '.line("'<").'-'.line("'>").') printed to "'.psfile.'"' )
+		endif
+	endif
+
+	" restore current settings
+	let &g:printheader = printheader_saved
+
+endfunction   " ----------  end of function s:Hardcopy  ----------
+
+" }}}2
+"-------------------------------------------------------------------------------
+
+"-------------------------------------------------------------------------------
 " === Module setup ===   {{{1
 "-------------------------------------------------------------------------------
 
@@ -250,7 +508,9 @@ endfunction    " ----------  end of function s:WarningMsg  ----------
 
 let s:MSWIN = has("win16") || has("win32")   || has("win64") || has("win95")
 let s:UNIX	= has("unix")  || has("macunix") || has("win32unix")
-"
+
+let s:NEOVIM = has("nvim")
+
 let s:installation             = '*undefined*'
 let s:Latex_GlobalTemplateFile = ''
 let s:Latex_LocalTemplateFile  = ''
@@ -281,6 +541,7 @@ if s:MSWIN
 	let s:Latex_DviPdf      = 'dvipdfm.exe'
 	let s:Latex_DviPng      = 'dvipng.exe'
 	let s:Latex_DviPs       = 'dvips.exe'
+	let s:Latex_EpsPdf      = ''
 	let s:Latex_PdfPng      = ''
 	let s:Latex_PsPdf       = 'ps2pdf.exe'
 	"
@@ -328,6 +589,7 @@ else
 	let s:Latex_DviPdf      = 'dvipdft'
 	let s:Latex_DviPng      = 'dvipng'
 	let s:Latex_DviPs       = 'dvips'
+	let s:Latex_EpsPdf      = 'ps2pdf -dEPSCrop'
 	let s:Latex_PdfPng      = 'convert'
 	let s:Latex_PsPdf       = 'ps2pdf'
 	"
@@ -355,7 +617,7 @@ else
 endif
 
 let s:Latex_AdditionalTemplates = mmtemplates#config#GetFt ( 'latex' )
-call s:ApplyDefaultSetting ( 'Latex_CodeSnippets', s:plugin_dir.'/latex-support/codesnippets/' )
+let s:Latex_CodeSnippets        = s:plugin_dir.'/latex-support/codesnippets/'
 
 "  g:Latex_Dictionary_File  must be global
 "
@@ -367,25 +629,31 @@ endif
 " == Various settings ==   {{{2
 "-------------------------------------------------------------------------------
 
+"-------------------------------------------------------------------------------
+" User configurable options   {{{3
+"-------------------------------------------------------------------------------
+
 let s:escfilename 								= ' \%#[]'
 let s:Latex_TexFlavor							= 'latex'
-let s:Latex_CreateMenusDelayed		= 'yes'
 let s:Latex_GuiSnippetBrowser 		= 'gui'             " gui / commandline
-let s:Latex_LoadMenus         		= 'yes'             " load the menus?
-let s:Latex_RootMenu          		= 'LaTe&X'          " name of the root menu
+let s:Latex_LoadMenus             = 'auto'            " load the menus?
+let s:Latex_RootMenu              = 'LaTe&X'          " name of the root menu
 let s:Latex_Processing            = 'foreground'
 let s:Latex_UseToolbox            = 'yes'
 call s:ApplyDefaultSetting ( 'Latex_UseTool_make', 'yes' )
+
+let s:Latex_MainDocument          = ''
 
 if ! exists ( 's:MenuVisible' )
 	let s:MenuVisible = 0                        " menus are not visible at the moment
 endif
 "
 let s:Latex_LineEndCommColDefault = 49
-let s:Latex_Printheader   				= "%<%f%h%m%<  %=%{strftime('%x %X')}     Page %N"
 let s:Latex_TemplateJumpTarget 		= ''
 let s:Latex_Wrapper               = s:plugin_dir.'/latex-support/scripts/wrapper.sh'
-let s:Latex_InsertFileProlog			= 'yes'
+let s:Latex_InsertFileProlog      = 'yes'
+let s:Latex_Ctrl_j                = 'yes'
+let s:Latex_Ctrl_d                = 'yes'
 
 let s:Latex_LatexErrorf  = '%f:%l: %m'
 let s:Latex_BibtexErrorf =
@@ -394,16 +662,20 @@ let s:Latex_BibtexErrorf =
 			\ .','.'Warning--%m'
 			\ .','.'--line %l of file %f'
 
-" overwrite the mapleader, we should not use use "\" in LaTeX
-call s:ApplyDefaultSetting ( 'Latex_MapLeader', '´' )
+"-------------------------------------------------------------------------------
+" Get user configuration   {{{3
+"-------------------------------------------------------------------------------
 
 call s:GetGlobalSetting( 'Latex_CustomTemplateFile' )
-call s:GetGlobalSetting( 'Latex_CreateMenusDelayed' )
 call s:GetGlobalSetting( 'Latex_DviPdf' )
 call s:GetGlobalSetting( 'Latex_DviPng' )
 call s:GetGlobalSetting( 'Latex_DviPs' )
 call s:GetGlobalSetting( 'Latex_DviViewer' )
 call s:GetGlobalSetting( 'Latex_GlobalTemplateFile' )
+call s:GetGlobalSetting( 'Latex_CodeSnippets' )
+call s:GetGlobalSetting( 'Latex_Ctrl_j' )
+call s:GetGlobalSetting( 'Latex_Ctrl_d' )
+call s:GetGlobalSetting( 'Latex_EpsPdf' )
 call s:GetGlobalSetting( 'Latex_GuiSnippetBrowser' )
 call s:GetGlobalSetting( 'Latex_InsertFileProlog' )
 call s:GetGlobalSetting( 'Latex_Latex' )
@@ -416,7 +688,6 @@ call s:GetGlobalSetting( 'Latex_PdfPng' )
 call s:GetGlobalSetting( 'Latex_PdfViewer' )
 call s:GetGlobalSetting( 'Latex_Pdflatex' )
 call s:GetGlobalSetting( 'Latex_Pdftex' )
-call s:GetGlobalSetting( 'Latex_Printheader' )
 call s:GetGlobalSetting( 'Latex_Processing' )
 call s:GetGlobalSetting( 'Latex_PsPdf' )
 call s:GetGlobalSetting( 'Latex_PsViewer' )
@@ -425,6 +696,26 @@ call s:GetGlobalSetting( 'Latex_Tex' )
 call s:GetGlobalSetting( 'Latex_TexFlavor' )
 call s:GetGlobalSetting( 'Latex_Typesetter' )
 call s:GetGlobalSetting( 'Latex_UseToolbox' )
+
+" overwrite the mapleader, we should not use use "\" in LaTeX
+call s:ApplyDefaultSetting ( 'Latex_MapLeader', '´' )
+call s:ApplyDefaultSetting ( 'Latex_Printheader',  "%<%f%h%m%<  %=%{strftime('%x %X')}     Page %N" )
+
+" adapt for backwards compatibility
+if s:Latex_LoadMenus == 'no'
+	let s:Latex_LoadMenus = 'manual'
+elseif s:Latex_LoadMenus == 'yes'
+	if exists ( 'g:Latex_CreateMenusDelayed' )
+		let s:Latex_LoadMenus = g:Latex_CreateMenusDelayed == 'yes' ? 'auto' : 'startup'
+	else
+		" old default for 'Latex_CreateMenusDelayed' is 'yes'
+		let s:Latex_LoadMenus = 'auto'
+	endif
+endif
+
+"-------------------------------------------------------------------------------
+" Internal variables   {{{3
+"-------------------------------------------------------------------------------
 
 let s:Latex_TypesetterCall = {
 			\ 'latex'    : s:Latex_Latex   ,
@@ -445,6 +736,7 @@ let s:Latex_ConverterCall = {
 			\ 'dvi-pdf' 	: [ s:Latex_DviPdf , "no" ],
 			\ 'dvi-png'		: [ s:Latex_DviPng , "no" ],
 			\ 'dvi-ps'		: [ s:Latex_DviPs  , "no" ],
+			\ 'eps-pdf'		: [ s:Latex_EpsPdf , "no" ],
 			\ 'pdf-png'		: [ s:Latex_PdfPng , "yes"],
 			\ 'ps-pdf'		: [ s:Latex_PsPdf  , "no" ],
 			\ }
@@ -457,11 +749,13 @@ let s:Latex_ViewerCall = {
 
 let s:Latex_ProcessingList = [ 'foreground' ]
 
-if has('job')
+" :TODO:25.09.2017 17:17:WM: enable Windows, check how to start jobs with arguments under Windows
+if has('job') && ! s:MSWIN || s:NEOVIM
 	call add ( s:Latex_ProcessingList, 'background' )
 endif
 
-let s:Latex_Printheader = escape( s:Latex_Printheader, ' %' )
+" }}}3
+"-------------------------------------------------------------------------------
 
 " }}}2
 "-------------------------------------------------------------------------------
@@ -714,7 +1008,7 @@ function! s:WizardTabbing()
 	if param == ""
 		return
 	elseif match( param, '^\s*\d\+\(\s\+\d\+\)\{0,2}\s*$' ) < 0
-		return s:WarningMsg ( 'Wrong input format.' )
+		return s:WarningMsg ( ' Wrong input format.' )
 	endif
 
 	" parse the input
@@ -759,7 +1053,7 @@ function! s:WizardTabular()
 	if param == ""
 		return
 	elseif match( param, '^\s*\d\+\(\s\+\d\+\)\{0,2}\s*$' ) < 0
-		return s:WarningMsg ( 'Wrong input format.' )
+		return s:WarningMsg ( ' Wrong input format.' )
 	endif
 
 	" parse the input
@@ -798,21 +1092,138 @@ endfunction    " ----------  end of function s:WizardTabular  ----------
 
 let s:BackgroundType   = ''                     " type of the job
 let s:BackgroundStatus = -1                     " status of the last job
-let s:BackgroundOutput = []                     " output of the last job
+let s:BackgroundOutStd = []                     " output of the last job
+let s:BackgroundOutErr = []                     " output of the last job
 
 "-------------------------------------------------------------------------------
-" s:BackgroundCB_IO : Callback for output from the background job.   {{{2
+" Neovim   {{{2
+"-------------------------------------------------------------------------------
+if s:NEOVIM
+
+"-------------------------------------------------------------------------------
+" s:BackgroundStart : Start a background job.   {{{3
+"
+" Parameters:
+"   id - the job ID (string)
+"   cmd - the shell command to run (string, or list of strings)
+" Returns:
+"   -
+"-------------------------------------------------------------------------------
+function! s:BackgroundStart ( id, cmd )
+	if exists ( 's:BackgroundJob' )
+		return s:WarningMsg ( 'Job "'.s:BackgroundType.'" still running.' )
+	endif
+
+	let s:BackgroundType   = a:id
+	let s:BackgroundStatus = -1
+	let s:BackgroundOutStd = []
+	let s:BackgroundOutErr = []
+
+	let s:BackgroundJob = jobstart ( a:cmd,
+				\ {
+				\ 'on_stdout' : '<SNR>'.s:SID().'_BackgroundCB_IO',
+				\ 'on_stderr' : '<SNR>'.s:SID().'_BackgroundCB_IO',
+				\ 'on_exit'   : '<SNR>'.s:SID().'_BackgroundCB_Exit',
+				\ } )
+
+	if s:BackgroundJob <= 0
+		call s:WarningMsg ( 'Starting "'.s:BackgroundType.'" failed!' )
+		unlet s:BackgroundJob
+	else
+		call s:ImportantMsg ( 'Starting "'.s:BackgroundType.'" in background.' )
+	endif
+
+	return
+endfunction    " ----------  end of function s:BackgroundStart  ----------
+
+"-------------------------------------------------------------------------------
+" s:BackgroundCB_IO : Callback for output from the background job.   {{{3
+"
+" Parameters:
+"   chn - the channel (channel)
+"   msg - the new line (string)
+"-------------------------------------------------------------------------------
+function! s:BackgroundCB_IO ( job_id, data, event )
+	if a:event == 'stdout'
+		let s:BackgroundOutStd += a:data
+	elseif a:event == 'stdout'
+		let s:BackgroundOutErr += a:data
+	endif
+endfunction    " ----------  end of function s:BackgroundCB_IO  ----------
+
+"-------------------------------------------------------------------------------
+" s:BackgroundCB_Exit : Callback for a finished background job.   {{{3
+"
+" Parameters:
+"   job - the job (job)
+"   status - the status (number)
+"-------------------------------------------------------------------------------
+function! s:BackgroundCB_Exit ( job_id, data, event )
+	if a:data == 0
+		call s:ImportantMsg ( 'Job "'.s:BackgroundType.'" finished successfully.' )
+	else
+		call s:ImportantMsg ( 'Job "'.s:BackgroundType.'" failed (exit status '.a:data.').' )
+	endif
+
+	let s:BackgroundStatus = a:data
+	unlet s:BackgroundJob
+endfunction    " ----------  end of function s:BackgroundCB_Exit  ----------
+
+" }}}3
+"-------------------------------------------------------------------------------
+
+"-------------------------------------------------------------------------------
+" Vim/gVim   {{{2
+"-------------------------------------------------------------------------------
+else   " ! s:NEOVIM
+
+"-------------------------------------------------------------------------------
+" s:BackgroundStart : Start a background job.   {{{3
+"
+" Parameters:
+"   id - the job ID (string)
+"   cmd - the shell command to run (string, or list of strings)
+" Returns:
+"   -
+"-------------------------------------------------------------------------------
+function! s:BackgroundStart ( id, cmd )
+	if exists ( 's:BackgroundJob' )
+		return s:WarningMsg ( 'Job "'.s:BackgroundType.'" still running.' )
+	endif
+
+	let s:BackgroundType   = a:id
+	let s:BackgroundStatus = -1
+	let s:BackgroundOutStd = []
+
+	let s:BackgroundJob = job_start ( a:cmd,
+				\ {
+				\ 'callback' : '<SNR>'.s:SID().'_BackgroundCB_IO',
+				\ 'exit_cb'  : '<SNR>'.s:SID().'_BackgroundCB_Exit',
+				\ } )
+
+	if job_status ( s:BackgroundJob ) == 'fail'
+		call s:WarningMsg ( 'Starting "'.s:BackgroundType.'" failed!' )
+		unlet s:BackgroundJob
+	else
+		call s:ImportantMsg ( 'Starting "'.s:BackgroundType.'" in background.' )
+	endif
+
+	return
+endfunction    " ----------  end of function s:BackgroundStart  ----------
+
+"-------------------------------------------------------------------------------
+" s:BackgroundCB_IO : Callback for output from the background job.   {{{3
 "
 " Parameters:
 "   chn - the channel (channel)
 "   msg - the new line (string)
 "-------------------------------------------------------------------------------
 function! s:BackgroundCB_IO ( chn, msg )
-	call add ( s:BackgroundOutput, a:msg )
+	call add ( s:BackgroundOutStd, a:msg )
 endfunction    " ----------  end of function s:BackgroundCB_IO  ----------
 
 "-------------------------------------------------------------------------------
-" s:BackgroundCB_Exit : Callback for a finished background job.   {{{2
+" s:BackgroundCB_Exit : Callback for a finished background job.   {{{3
 "
 " Parameters:
 "   job - the job (job)
@@ -829,6 +1240,10 @@ function! s:BackgroundCB_Exit ( job, status )
 	unlet s:BackgroundJob
 endfunction    " ----------  end of function s:BackgroundCB_Exit  ----------
 
+" }}}3
+"-------------------------------------------------------------------------------
+endif
+
 "-------------------------------------------------------------------------------
 " s:BackgroundErrors : Quickfix background errors.   {{{2
 "-------------------------------------------------------------------------------
@@ -836,7 +1251,7 @@ function! s:BackgroundErrors ()
 
 	if exists ( 's:BackgroundJob' )
 		return s:WarningMsg ( 'Job "'.s:BackgroundType.'" still running.' )
-	elseif len ( s:BackgroundOutput ) == 0
+	elseif len ( s:BackgroundOutStd ) == 0 && len ( s:BackgroundOutErr ) == 0
 		return s:WarningMsg ( 'Not output for last job.' )
 	endif
 
@@ -848,7 +1263,7 @@ function! s:BackgroundErrors ()
 	" run typesetter
 	let &g:errorformat = s:Latex_LatexErrorf
 
-	let errors = join ( s:BackgroundOutput, "\n" )
+	let errors = join ( s:BackgroundOutStd + s:BackgroundOutErr, "\n" )
 	silent exe 'cgetexpr errors'
 
 	" restore current settings
@@ -864,6 +1279,38 @@ endfunction    " ----------  end of function s:BackgroundErrors  ----------
 "-------------------------------------------------------------------------------
 
 "-------------------------------------------------------------------------------
+" s:SetMainDocument : Set the main document.   {{{1
+"
+" Passing an empty string as 'filename' resets the option, and the filenames
+" are taken from the current buffer again.
+"
+" Parameters:
+"   filename - the new main document (string)
+"   echo_only - if true, only echo the current setting (integer)
+" Returns:
+"   -
+"-------------------------------------------------------------------------------
+function! s:SetMainDocument ( filename, echo_only )
+
+	if a:echo_only
+		echo s:Latex_MainDocument
+		return
+	endif
+
+	let new_main = expand ( a:filename )
+
+	if new_main == ''
+		let s:Latex_MainDocument = ''
+	elseif ! filereadable ( new_main )
+		return s:ErrorMsg ( '"'.new_main.'" is not readable, nothing set.' )
+	else
+		let new_main = fnamemodify ( new_main, ':p' )
+		let s:Latex_MainDocument = new_main
+	endif
+
+endfunction    " ----------  end of function s:SetMainDocument  ----------
+
+"-------------------------------------------------------------------------------
 " s:Compile : Run the typesetter.   {{{1
 "
 " Parameters:
@@ -872,16 +1319,22 @@ endfunction    " ----------  end of function s:BackgroundErrors  ----------
 function! s:Compile ( args )
 
 	let typesettercall = s:Latex_TypesetterCall[s:Latex_Typesetter]
-	let typesetter     = split( s:Latex_TypesetterCall[s:Latex_Typesetter] )[0]
+	let typesetter     = split( typesettercall )[0]
 	if ! executable( typesetter )
 		return s:ErrorMsg ( 'Typesetter "'.typesetter.'" does not exist or its name is not unique.' )
 	endif
 
+	let dir = ''
+
 	" get the name of the source file
-	if a:args == ''
-		let source = expand("%")                    " name of the file in the current buffer
-	else
+	if a:args != ''
 		let source = a:args
+	elseif s:Latex_MainDocument != ''
+		let source = s:Latex_MainDocument           " name of the main document
+		let dir    = fnamemodify ( source, ':p:h' )
+		exe 'cd '.fnameescape( dir )
+	else
+		let source = expand("%")                    " name of the file in the current buffer
 	endif
 
 	" write source file if necessary
@@ -891,38 +1344,42 @@ function! s:Compile ( args )
 
 	cclose
 
-	if s:Latex_Processing == 'background' && has ( 'job' )
-		if exists ( 's:BackgroundJob' )
-			return s:WarningMsg ( 'Job "'.s:BackgroundType.'" still running.' )
+	try
+		if s:Latex_Processing == 'background'
+			let arg_list = s:ShellParseArgs ( typesettercall ) + [ source ]
+
+			call s:BackgroundStart ( s:Latex_Typesetter, arg_list )
+			return       | " continue with 'finally' below
 		endif
 
-		let s:BackgroundType   = s:Latex_Typesetter
-		let s:BackgroundStatus = -1
-		let s:BackgroundOutput = []
+		" save current settings
+		let makeprg_saved = &l:makeprg
+		let errorf_saved  = &l:errorformat
 
-		let s:BackgroundJob = job_start (
-					\ typesettercall.' "'.( source ).'"', {
-					\ 'callback' : '<SNR>'.s:SID().'_BackgroundCB_IO',
-					\ 'exit_cb'  : '<SNR>'.s:SID().'_BackgroundCB_Exit'
-					\ } )
+		" run typesetter
+		let &l:makeprg     = typesettercall
+		let &l:errorformat = s:Latex_LatexErrorf
 
-		call s:ImportantMsg ( 'Starting "'.s:Latex_Typesetter.'" in background.' )
-		return
-	endif
+		exe "make ".shellescape ( source )
 
-	" save current settings
-	let makeprg_saved = &l:makeprg
-	let errorf_saved  = &l:errorformat
+		" restore current settings
+		let &l:makeprg     = makeprg_saved
+		let &l:errorformat = errorf_saved
 
-	" run typesetter
-	let &l:makeprg     = typesettercall
-	let &l:errorformat = s:Latex_LatexErrorf
-
-	exe "make ".shellescape ( source )
-
-	" restore current settings
-	let &l:makeprg     = makeprg_saved
-	let &l:errorformat = errorf_saved
+	catch /^ShellParseArgs:Syntax:/
+		let msg = v:exception[ len( 'ShellParseArgs:Syntax:') : -1 ]
+		return s:WarningMsg ( 'syntax error while parsing typersetter arguments: '.msg,
+					\ ' - typersetter call: '.typesettercall )
+	catch /.*/
+		return s:WarningMsg (
+					\ "internal error (" . v:exception . ")",
+					\ " - occurred at " . v:throwpoint )
+	finally
+		" jump back to the old working directory
+		if dir != ''
+			cd -
+		endif
+	endtry
 
 	" open error window if necessary
 	botright cwindow
@@ -1160,64 +1617,92 @@ function! s:View ( args )
 endfunction    " ----------  end of function s:View ----------
 
 "-------------------------------------------------------------------------------
-" s:ConvertInput : Cmd-line support for conversions.   {{{1
-"
-" Choose a conversion on the command-line, and run it on the current buffer.
-"-------------------------------------------------------------------------------
-function! s:ConvertInput ()
-	let retval = s:UserInput ( "start converter (tab exp.): ", '', 'customlist', sort( keys( s:Latex_ConverterCall ) ) )
-	redraw!
-	call s:Conversions( retval )
-	return
-endfunction    " ----------  end of function s:ConvertInput  ----------
-
-"-------------------------------------------------------------------------------
 " s:Conversions : Perform a conversion.   {{{1
 "
-" Perform the conversion s:Latex_ConverterCall[ <format> ] .
+" Perform the conversion s:Latex_ConverterCall[ <format> ] on the file
+" <filename>.
 "
 " Parameters:
-"   format - the conversion (string)
+"   filename - the file to convert (string, can be empty)
+"   format - the conversion (string, can be empty)
 "-------------------------------------------------------------------------------
-function! s:Conversions ( format )
-	if &filetype != 'tex'
-		echomsg	'The filetype of this buffer is not "tex".'
-		return
+function! s:Conversions ( filename, format )
+
+	let filename = a:filename
+	let convert  = a:format
+
+	" handle the conversion
+	if convert == ''
+		let convert = s:UserInput ( "start converter (tab exp.): ", '', 'customlist', sort( keys( s:Latex_ConverterCall ) ) )
+		if convert == ''
+			return
+		endif
+		echo ' '
 	endif
-	if a:format == ''
+
+	if ! has_key( s:Latex_ConverterCall, convert )
+		return s:WarningMsg ( 'Converter "'.convert.'" does not exist.' )
+	endif
+
+	let convertercall = s:Latex_ConverterCall[convert][0]
+	if convertercall == ''
+		return s:WarningMsg ( 'Converter "'.convert.'" not properly configured.' )
+	endif
+	let converter = split( convertercall )[0]
+	if ! executable( converter )
+		return s:WarningMsg ( 'Converter "'.converter.'" does not exist or its name is not unique.' )
+	endif
+
+	let need_output_file = s:Latex_ConverterCall[convert][1] == 'yes'
+
+	cclose
+
+	" handle the input file
+	if filename == ''
+		let filename = expand("%")
+	endif
+	let fileroot = fnamemodify ( filename, ':r' )
+
+	let source  = fileroot.'.'.split( convert, '-' )[0]
+	let target  = ''
+	let t_ext   = split( convert, '-' )[1]
+
+	if s:Latex_Processing == 'background'
+		try
+			let arg_list = s:ShellParseArgs ( convertercall ) + [ source ]
+		catch /^ShellParseArgs:Syntax:/
+			let msg = v:exception[ len( 'ShellParseArgs:Syntax:') : -1 ]
+			return s:WarningMsg ( 'syntax error while parsing converter arguments: '.msg,
+						\ ' - converter call: '.convertercall )
+		catch /.*/
+			return s:WarningMsg (
+						\ "internal error (" . v:exception . ")",
+						\ " - occurred at " . v:throwpoint )
+		endtry
+
+		if need_output_file
+			let arg_list += [ fileroot.'.'.t_ext ]
+		endif
+
+		call s:BackgroundStart ( convert, arg_list )
 		return
 	endif
 
-	if !has_key( s:Latex_ConverterCall, a:format )
-		echomsg 'Converter "'.a:format.'" does not exist.'
-		return
+	if need_output_file
+		let target = shellescape ( fileroot.'.'.t_ext )
 	endif
+	let logfile = fileroot.'.conversion.log'
 
-	let	converter	= s:Latex_ConverterCall[a:format][0]
-	if !executable( split(converter)[0] )
-		echomsg 'Converter "'.converter.'" does not exist or its name is not unique.'
-		return
-	endif
+	silent exe '!'.convertercall.' '.shellescape( source ).' '.target.' > '.shellescape( logfile )
 
-	let	l:currentbuffer	= bufname("%")
-	exe	":cclose"
-	let	Sou		= expand("%")											" name of the file in the current buffer
-	let SouEsc= escape( Sou, s:escfilename )
-
-	let source   = expand("%:r").'.'.split( a:format, '-' )[0]
-	let logfile  = expand("%:r").'.conversion.log'
-	let target   = ''
-	if s:Latex_ConverterCall[a:format][1] == 'yes'
-		let target   = expand("%:r").'.'.split( a:format, '-' )[1]
-	endif
-""  silent exe '!'.s:Latex_ConverterCall[a:format][0].' '.source.' '.target.' > '.logfile
-	silent exe '!'.converter.' '.source.' '.target.' > '.logfile
 	if v:shell_error
-		echohl WarningMsg
-		echo 'Conversion '.a:format.' reported errors. Please see file "'.logfile.'" !'
-		echohl None
+		call s:Redraw('r!','r')                     " redraw after cclose, before echoing
+		call s:WarningMsg (
+					\ 'Conversion '.convert.' reported errors.',
+					\ 'Please check the logfile: '.logfile )
 	else
-		echo 'Conversion '.a:format.' done.'
+		call s:Redraw('r!','r')                     " redraw after cclose, before echoing
+		call s:ImportantMsg ( 'Conversion '.convert.' done.' )
 	endif
 endfunction    " ----------  end of function s:Conversions  ----------
 
@@ -1395,7 +1880,10 @@ function! s:RereadTemplates ()
 	"
 	" syntax: comments
 	call mmtemplates#core#ChangeSyntax ( g:Latex_Templates, 'comment', '§' )
-	"
+
+	" property: file skeletons
+	call mmtemplates#core#Resource ( g:Latex_Templates, 'add', 'property', 'Latex::FileSkeleton::Script', 'Comments.file prolog' )
+
 	"-------------------------------------------------------------------------------
 	" load template library
 	"-------------------------------------------------------------------------------
@@ -1464,6 +1952,43 @@ function! s:CheckTemplatePersonalization ()
 endfunction    " ----------  end of function s:CheckTemplatePersonalization  ----------
 
 "-------------------------------------------------------------------------------
+" s:CheckAndRereadTemplates : Make sure the templates are loaded.   {{{1
+"-------------------------------------------------------------------------------
+function! s:CheckAndRereadTemplates ()
+	if ! exists ( 'g:Latex_Templates' )
+		call s:RereadTemplates()
+	endif
+endfunction    " ----------  end of function s:CheckAndRereadTemplates  ----------
+
+"-------------------------------------------------------------------------------
+" s:InsertFileHeader : Insert a file header.   {{{1
+"-------------------------------------------------------------------------------
+function! s:InsertFileHeader ()
+	call s:CheckAndRereadTemplates()
+
+	" prevent insertion for a file generated from a some error
+	if isdirectory(expand('%:p:h')) && s:Latex_InsertFileProlog == 'yes'
+		let templ_s = mmtemplates#core#Resource ( g:Latex_Templates, 'get', 'property', 'Latex::FileSkeleton::Script' )[0]
+
+		" insert templates in reverse order, always above the first line
+		" the last one to insert (the first in the list), will determine the
+		" placement of the cursor
+		let templ_l = split ( templ_s, ';' )
+		for i in range ( len(templ_l)-1, 0, -1 )
+			exe 1
+			if -1 != match ( templ_l[i], '^\s\+$' )
+				put! =''
+			else
+				call mmtemplates#core#InsertTemplate ( g:Latex_Templates, templ_l[i], 'placement', 'above' )
+			endif
+		endfor
+		if len(templ_l) > 0
+			set modified
+		endif
+	endif
+endfunction    " ----------  end of function s:InsertFileHeader  ----------
+
+"-------------------------------------------------------------------------------
 " s:JumpForward : Jump to the next target.   {{{1
 "
 " If no target is found, jump behind the current string
@@ -1485,93 +2010,6 @@ function! s:JumpForward ()
 	endif
 	return ''
 endfunction    " ----------  end of function s:JumpForward  ----------
-
-"-------------------------------------------------------------------------------
-" s:CodeSnippet : Code snippets.   {{{1
-"
-" Parameters:
-"   mode - view, edit, read, write, writemarked (string)
-"-------------------------------------------------------------------------------
-function! s:CodeSnippet ( mode )
-  if isdirectory(g:Latex_CodeSnippets)
-    "
-    " read snippet file, put content below current line
-    "
-    if a:mode == "read"
-			if has("gui_running") && s:Latex_GuiSnippetBrowser == 'gui'
-				let l:snippetfile=browse(0,"read a code snippet",g:Latex_CodeSnippets,"")
-			else
-				let	l:snippetfile=input("read snippet ", g:Latex_CodeSnippets, "file" )
-			endif
-      if filereadable(l:snippetfile)
-        let linesread= line("$")
-        let l:old_cpoptions = &cpoptions " Prevent the alternate buffer from being set to this files
-        setlocal cpoptions-=a
-        :execute "read ".l:snippetfile
-        let &cpoptions  = l:old_cpoptions   " restore previous options
-        "
-        let linesread= line("$")-linesread-1
-        if linesread>=0 && match( l:snippetfile, '\.\(ni\|noindent\)$' ) < 0
-          silent exe "normal! =".linesread."+"
-        endif
-      endif
-    endif
-    "
-    " update current buffer / split window / edit snippet file
-    "
-    if a:mode == "edit"
-			if has("gui_running") && s:Latex_GuiSnippetBrowser == 'gui'
-				let l:snippetfile=browse(0,"edit a code snippet",g:Latex_CodeSnippets,"")
-			else
-				let	l:snippetfile=input("edit snippet ", g:Latex_CodeSnippets, "file" )
-			endif
-      if !empty(l:snippetfile)
-        :execute "update! | split | edit ".l:snippetfile
-      endif
-    endif
-    "
-    " update current buffer / split window / view snippet file
-    "
-    if a:mode == "view"
-			if has("gui_running") && s:Latex_GuiSnippetBrowser == 'gui'
-				let l:snippetfile=browse(0,"view a code snippet",g:Latex_CodeSnippets,"")
-			else
-				let	l:snippetfile=input("view snippet ", g:Latex_CodeSnippets, "file" )
-			endif
-      if !empty(l:snippetfile)
-        :execute "update! | split | view ".l:snippetfile
-      endif
-    endif
-    "
-    " write whole buffer or marked area into snippet file
-    "
-    if a:mode == "write" || a:mode == "writemarked"
-			if has("gui_running") && s:Latex_GuiSnippetBrowser == 'gui'
-				let l:snippetfile=browse(1,"write a code snippet",g:Latex_CodeSnippets,"")
-			else
-				let	l:snippetfile=input("write snippet ", g:Latex_CodeSnippets, "file" )
-			endif
-      if !empty(l:snippetfile)
-        if filereadable(l:snippetfile)
-          if confirm("File ".l:snippetfile." exists ! Overwrite ? ", "&Cancel\n&No\n&Yes") != 3
-            return
-          endif
-        endif
-				if a:mode == "write"
-					:execute ":write! ".l:snippetfile
-				else
-					:execute ":'<,'>write! ".l:snippetfile
-				endif
-      endif
-    endif
-
-  else
-    redraw!
-    echohl ErrorMsg
-    echo "code snippet directory ".g:Latex_CodeSnippets." does not exist"
-    echohl None
-  endif
-endfunction   " ---------- end of function s:CodeSnippet  ----------
 
 "-------------------------------------------------------------------------------
 " s:CreateAdditionalLatexMaps : Create additional maps for LaTeX.   {{{1
@@ -1618,16 +2056,17 @@ function! s:CreateAdditionalLatexMaps ()
 	"-------------------------------------------------------------------------------
 	" snippets
 	"-------------------------------------------------------------------------------
-	nnoremap  <buffer>  <silent>  <LocalLeader>nr         :call <SID>CodeSnippet("read")<CR>
-	inoremap  <buffer>  <silent>  <LocalLeader>nr    <Esc>:call <SID>CodeSnippet("read")<CR>
-	nnoremap  <buffer>  <silent>  <LocalLeader>nw         :call <SID>CodeSnippet("write")<CR>
-	inoremap  <buffer>  <silent>  <LocalLeader>nw    <Esc>:call <SID>CodeSnippet("write")<CR>
-	vnoremap  <buffer>  <silent>  <LocalLeader>nw    <Esc>:call <SID>CodeSnippet("writemarked")<CR>
+
+	nnoremap  <buffer>  <silent>  <LocalLeader>nr         :call <SID>CodeSnippet("insert")<CR>
+	inoremap  <buffer>  <silent>  <LocalLeader>nr    <Esc>:call <SID>CodeSnippet("insert")<CR>
+	nnoremap  <buffer>  <silent>  <LocalLeader>nw         :call <SID>CodeSnippet("create")<CR>
+	inoremap  <buffer>  <silent>  <LocalLeader>nw    <Esc>:call <SID>CodeSnippet("create")<CR>
+	vnoremap  <buffer>  <silent>  <LocalLeader>nw    <Esc>:call <SID>CodeSnippet("vcreate")<CR>
 	nnoremap  <buffer>  <silent>  <LocalLeader>ne         :call <SID>CodeSnippet("edit")<CR>
 	inoremap  <buffer>  <silent>  <LocalLeader>ne    <Esc>:call <SID>CodeSnippet("edit")<CR>
 	nnoremap  <buffer>  <silent>  <LocalLeader>nv         :call <SID>CodeSnippet("view")<CR>
 	inoremap  <buffer>  <silent>  <LocalLeader>nv    <Esc>:call <SID>CodeSnippet("view")<CR>
-	"
+
 	"-------------------------------------------------------------------------------
 	" wizard
 	"-------------------------------------------------------------------------------
@@ -1645,6 +2084,9 @@ function! s:CreateAdditionalLatexMaps ()
    noremap  <buffer>  <silent>  <LocalLeader>rla        :call <SID>Lacheck("")<CR>
   inoremap  <buffer>  <silent>  <LocalLeader>rla   <C-C>:call <SID>Lacheck("")<CR>
   vnoremap  <buffer>  <silent>  <LocalLeader>rla   <C-C>:call <SID>Lacheck("")<CR>
+   noremap  <buffer>            <LocalLeader>rmd        :LatexMainDoc<SPACE>
+  inoremap  <buffer>            <LocalLeader>rmd   <C-C>:LatexMainDoc<SPACE>
+  vnoremap  <buffer>            <LocalLeader>rmd   <C-C>:LatexMainDoc<SPACE>
    noremap  <buffer>  <silent>  <LocalLeader>re         :call <SID>BackgroundErrors()<CR>
   inoremap  <buffer>  <silent>  <LocalLeader>re    <C-C>:call <SID>BackgroundErrors()<CR>
   vnoremap  <buffer>  <silent>  <LocalLeader>re    <C-C>:call <SID>BackgroundErrors()<CR>
@@ -1677,15 +2119,15 @@ function! s:CreateAdditionalLatexMaps ()
 	inoremap  <buffer>            <LocalLeader>rp    <Esc>:LatexProcessing<SPACE>
 	vnoremap  <buffer>            <LocalLeader>rp    <Esc>:LatexProcessing<SPACE>
 
-	nnoremap  <buffer>  <silent>  <LocalLeader>rse        :call Latex_Settings(0)<CR>
-  "
+	nnoremap  <buffer>  <silent>  <LocalLeader>rs         :call Latex_Settings(0)<CR>
+
 	 noremap  <buffer>  <silent>  <LocalLeader>rh         :call <SID>Hardcopy("n")<CR>
 	vnoremap  <buffer>  <silent>  <LocalLeader>rh    <C-C>:call <SID>Hardcopy("v")<CR>
 	inoremap  <buffer>  <silent>  <LocalLeader>rh    <C-C>:call <SID>Hardcopy("n")<CR>
 	"
-	 noremap  <buffer>  <silent>  <LocalLeader>rc        :call <SID>ConvertInput()<CR>
-	inoremap  <buffer>  <silent>  <LocalLeader>rc   <C-C>:call <SID>ConvertInput()<CR>
-	vnoremap  <buffer>  <silent>  <LocalLeader>rc   <C-C>:call <SID>ConvertInput()<CR>
+	 noremap  <buffer>  <silent>  <LocalLeader>rc        :call <SID>Conversions("","")<CR>
+	inoremap  <buffer>  <silent>  <LocalLeader>rc   <C-C>:call <SID>Conversions("","")<CR>
+	vnoremap  <buffer>  <silent>  <LocalLeader>rc   <C-C>:call <SID>Conversions("","")<CR>
 	"
 	"-------------------------------------------------------------------------------
 	" tool box
@@ -1717,13 +2159,17 @@ function! s:CreateAdditionalLatexMaps ()
 	"-------------------------------------------------------------------------------
 	" templates
 	"-------------------------------------------------------------------------------
-	nnoremap  <buffer>  <silent>  <C-j>       i<C-R>=<SID>JumpForward()<CR>
-	inoremap  <buffer>  <silent>  <C-j>  <C-G>u<C-R>=<SID>JumpForward()<CR>
-	"
-	" ----------------------------------------------------------------------------
-	"
-	call mmtemplates#core#CreateMaps ( 'g:Latex_Templates', g:Latex_MapLeader, 'do_special_maps', 'do_del_opt_map' ) |
-	"
+	if s:Latex_Ctrl_j == 'yes'
+		nnoremap  <buffer>  <silent>  <C-j>       i<C-R>=<SID>JumpForward()<CR>
+		inoremap  <buffer>  <silent>  <C-j>  <C-G>u<C-R>=<SID>JumpForward()<CR>
+	endif
+
+	if s:Latex_Ctrl_d == 'yes'
+		call mmtemplates#core#CreateMaps ( 'g:Latex_Templates', g:Latex_MapLeader, 'do_special_maps', 'do_del_opt_map' )
+	else
+		call mmtemplates#core#CreateMaps ( 'g:Latex_Templates', g:Latex_MapLeader, 'do_special_maps' )
+	endif
+
 endfunction    " ----------  end of function s:CreateAdditionalLatexMaps  ----------
 
 "-------------------------------------------------------------------------------
@@ -1770,16 +2216,17 @@ function! s:CreateAdditionalBibtexMaps ()
 	"-------------------------------------------------------------------------------
 	" snippets
 	"-------------------------------------------------------------------------------
-	nnoremap  <buffer>  <silent>  <LocalLeader>nr         :call <SID>CodeSnippet("read")<CR>
-	inoremap  <buffer>  <silent>  <LocalLeader>nr    <Esc>:call <SID>CodeSnippet("read")<CR>
-	nnoremap  <buffer>  <silent>  <LocalLeader>nw         :call <SID>CodeSnippet("write")<CR>
-	inoremap  <buffer>  <silent>  <LocalLeader>nw    <Esc>:call <SID>CodeSnippet("write")<CR>
-	vnoremap  <buffer>  <silent>  <LocalLeader>nw    <Esc>:call <SID>CodeSnippet("writemarked")<CR>
+
+	nnoremap  <buffer>  <silent>  <LocalLeader>nr         :call <SID>CodeSnippet("insert")<CR>
+	inoremap  <buffer>  <silent>  <LocalLeader>nr    <Esc>:call <SID>CodeSnippet("insert")<CR>
+	nnoremap  <buffer>  <silent>  <LocalLeader>nw         :call <SID>CodeSnippet("create")<CR>
+	inoremap  <buffer>  <silent>  <LocalLeader>nw    <Esc>:call <SID>CodeSnippet("create")<CR>
+	vnoremap  <buffer>  <silent>  <LocalLeader>nw    <Esc>:call <SID>CodeSnippet("vcreate")<CR>
 	nnoremap  <buffer>  <silent>  <LocalLeader>ne         :call <SID>CodeSnippet("edit")<CR>
 	inoremap  <buffer>  <silent>  <LocalLeader>ne    <Esc>:call <SID>CodeSnippet("edit")<CR>
 	nnoremap  <buffer>  <silent>  <LocalLeader>nv         :call <SID>CodeSnippet("view")<CR>
 	inoremap  <buffer>  <silent>  <LocalLeader>nv    <Esc>:call <SID>CodeSnippet("view")<CR>
-	"
+
 	"-------------------------------------------------------------------------------
 	" run
 	"-------------------------------------------------------------------------------
@@ -1797,7 +2244,7 @@ function! s:CreateAdditionalBibtexMaps ()
   inoremap  <buffer>  <silent>  <LocalLeader>rbi   <C-C>:call <SID>Bibtex("")<CR>
   vnoremap  <buffer>  <silent>  <LocalLeader>rbi   <C-C>:call <SID>Bibtex("")<CR>
 	"
-	nnoremap  <buffer>  <silent>  <LocalLeader>rse        :call Latex_Settings(0)<CR>
+	nnoremap  <buffer>  <silent>  <LocalLeader>rs         :call Latex_Settings(0)<CR>
   "
 	 noremap  <buffer>  <silent>  <LocalLeader>rh         :call <SID>Hardcopy("n")<CR>
 	vnoremap  <buffer>  <silent>  <LocalLeader>rh    <C-C>:call <SID>Hardcopy("v")<CR>
@@ -1910,13 +2357,13 @@ function! s:InitMenus()
 	let ihead = 'inoremenu <silent> '.s:Latex_RootMenu.'.S&nippets.'
 	let vhead = 'vnoremenu <silent> '.s:Latex_RootMenu.'.S&nippets.'
 
-	exe ahead.'&read\ code\ snippet<Tab>'.esc_mapl.'nr       :call <SID>CodeSnippet("read")<CR>'
-	exe ihead.'&read\ code\ snippet<Tab>'.esc_mapl.'nr  <C-C>:call <SID>CodeSnippet("read")<CR>'
+	exe ahead.'&read\ code\ snippet<Tab>'.esc_mapl.'nr       :call <SID>CodeSnippet("insert")<CR>'
+	exe ihead.'&read\ code\ snippet<Tab>'.esc_mapl.'nr  <C-C>:call <SID>CodeSnippet("insert")<CR>'
+	exe ahead.'&write\ code\ snippet<Tab>'.esc_mapl.'nw      :call <SID>CodeSnippet("create")<CR>'
+	exe ihead.'&write\ code\ snippet<Tab>'.esc_mapl.'nw <C-C>:call <SID>CodeSnippet("create")<CR>'
+	exe vhead.'&write\ code\ snippet<Tab>'.esc_mapl.'nw <C-C>:call <SID>CodeSnippet("vcreate")<CR>'
 	exe ahead.'&view\ code\ snippet<Tab>'.esc_mapl.'nv       :call <SID>CodeSnippet("view")<CR>'
 	exe ihead.'&view\ code\ snippet<Tab>'.esc_mapl.'nv  <C-C>:call <SID>CodeSnippet("view")<CR>'
-	exe ahead.'&write\ code\ snippet<Tab>'.esc_mapl.'nw      :call <SID>CodeSnippet("write")<CR>'
-	exe ihead.'&write\ code\ snippet<Tab>'.esc_mapl.'nw <C-C>:call <SID>CodeSnippet("write")<CR>'
-	exe vhead.'&write\ code\ snippet<Tab>'.esc_mapl.'nw <C-C>:call <SID>CodeSnippet("writemarked")<CR>'
 	exe ahead.'&edit\ code\ snippet<Tab>'.esc_mapl.'ne       :call <SID>CodeSnippet("edit")<CR>'
 	exe ihead.'&edit\ code\ snippet<Tab>'.esc_mapl.'ne  <C-C>:call <SID>CodeSnippet("edit")<CR>'
 	exe ahead.'-SepSnippets-                       :'
@@ -1949,11 +2396,15 @@ function! s:InitMenus()
 	let ahead = 'anoremenu <silent> '.s:Latex_RootMenu.'.Run.'
 	let ihead = 'inoremenu <silent> '.s:Latex_RootMenu.'.Run.'
 	let vhead = 'vnoremenu <silent> '.s:Latex_RootMenu.'.Run.'
+	let ahead_loud = 'anoremenu     '.s:Latex_RootMenu.'.Run.'
+	let ihead_loud = 'inoremenu     '.s:Latex_RootMenu.'.Run.'
 
 	exe ahead.'save\ +\ &run\ typesetter<Tab>'.esc_mapl.'rr       :call <SID>Compile("")<CR><CR>'
 	exe ihead.'save\ +\ &run\ typesetter<Tab>'.esc_mapl.'rr  <C-C>:call <SID>Compile("")<CR><CR>'
 	exe ahead.'save\ +\ run\ &lacheck<Tab>'.esc_mapl.'rla         :call <SID>Lacheck("")<CR>'
 	exe ihead.'save\ +\ run\ &lacheck<Tab>'.esc_mapl.'rla    <C-C>:call <SID>Lacheck("")<CR>'
+	exe ahead_loud.'&set\ main\ document<Tab>'.esc_mapl.'rmd      :LatexMainDoc '
+	exe ihead_loud.'&set\ main\ document<Tab>'.esc_mapl.'rmd <C-C>:LatexMainDoc '
 	exe ahead.'view\ last\ &errors<Tab>'.esc_mapl.'re             :call <SID>BackgroundErrors()<CR>'
 	exe ihead.'view\ last\ &errors<Tab>'.esc_mapl.'re        <C-C>:call <SID>BackgroundErrors()<CR>'
 
@@ -1967,16 +2418,18 @@ function! s:InitMenus()
 	exe ihead.'View.&PS<Tab>'.esc_mapl.'rps    <C-C>:call <SID>View("ps" )<CR>'
 
 	call mmtemplates#core#CreateMenus ( 'g:Latex_Templates', s:Latex_RootMenu, 'sub_menu', 'Run'.'.&Convert<TAB>'.esc_mapl.'rc' )
-	exe ahead.'Convert.DVI->PDF                               :call <SID>Conversions( "dvi-pdf")<CR>'
-	exe ihead.'Convert.DVI->PDF                          <C-C>:call <SID>Conversions( "dvi-pdf")<CR>'
-	exe ahead.'Convert.DVI->PS                                :call <SID>Conversions( "dvi-ps" )<CR>'
-	exe ihead.'Convert.DVI->PS                           <C-C>:call <SID>Conversions( "dvi-ps" )<CR>'
-	exe ahead.'Convert.DVI->PNG                               :call <SID>Conversions( "dvi-png")<CR>'
-	exe ihead.'Convert.DVI->PNG                          <C-C>:call <SID>Conversions( "dvi-png")<CR>'
-	exe ahead.'Convert.PDF->PNG                               :call <SID>Conversions( "pdf-png")<CR>'
-	exe ihead.'Convert.PDF->PNG                          <C-C>:call <SID>Conversions( "pdf-png")<CR>'
-	exe ahead.'Convert.PS->PDF                                :call <SID>Conversions( "ps-pdf" )<CR>'
-	exe ihead.'Convert.PS->PDF                           <C-C>:call <SID>Conversions( "ps-pdf" )<CR>'
+	exe ahead.'Convert.DVI->PDF                               :call <SID>Conversions("","dvi-pdf")<CR>'
+	exe ihead.'Convert.DVI->PDF                          <C-C>:call <SID>Conversions("","dvi-pdf")<CR>'
+	exe ahead.'Convert.DVI->PS                                :call <SID>Conversions("","dvi-ps" )<CR>'
+	exe ihead.'Convert.DVI->PS                           <C-C>:call <SID>Conversions("","dvi-ps" )<CR>'
+	exe ahead.'Convert.DVI->PNG                               :call <SID>Conversions("","dvi-png")<CR>'
+	exe ihead.'Convert.DVI->PNG                          <C-C>:call <SID>Conversions("","dvi-png")<CR>'
+	exe ahead.'Convert.EPS->PDF                               :call <SID>Conversions("","eps-pdf")<CR>'
+	exe ihead.'Convert.EPS->PDF                          <C-C>:call <SID>Conversions("","eps-pdf")<CR>'
+	exe ahead.'Convert.PDF->PNG                               :call <SID>Conversions("","pdf-png")<CR>'
+	exe ihead.'Convert.PDF->PNG                          <C-C>:call <SID>Conversions("","pdf-png")<CR>'
+	exe ahead.'Convert.PS->PDF                                :call <SID>Conversions("","ps-pdf" )<CR>'
+	exe ihead.'Convert.PS->PDF                           <C-C>:call <SID>Conversions("","ps-pdf" )<CR>'
 
 	exe ahead.'-SEP1-                            :'
 	exe ahead.'run\ make&glossaries<Tab>'.esc_mapl.'rmg                  :call <SID>Makeglossaries("")<CR>'
@@ -2001,8 +2454,8 @@ function! s:InitMenus()
 	exe ihead.'&hardcopy\ to\ FILENAME\.ps<Tab>'.esc_mapl.'rh   <C-C>:call <SID>Hardcopy("n")<CR>'
 
 	exe ahead.'-SEP4-                            :'
-	exe ahead.'plug-in\ &settings<Tab>'.esc_mapl.'rse                :call Latex_Settings(0)<CR>'
-	exe ihead.'plug-in\ &settings<Tab>'.esc_mapl.'rse           <C-C>:call Latex_Settings(0)<CR>'
+	exe ahead.'plug-in\ &settings<Tab>'.esc_mapl.'rs                 :call Latex_Settings(0)<CR>'
+	exe ihead.'plug-in\ &settings<Tab>'.esc_mapl.'rs            <C-C>:call Latex_Settings(0)<CR>'
 
 	" run -> choose typesetter
 	for ts in s:Latex_TypesetterList
@@ -2100,6 +2553,23 @@ function! s:RemoveMenus()
 endfunction    " ----------  end of function s:RemoveMenus  ----------
 
 "-------------------------------------------------------------------------------
+" s:Initialize : Initialize templates, menus, and maps.   {{{1
+"-------------------------------------------------------------------------------
+function! s:Initialize ( ftype )
+	if ! exists( 'g:Latex_Templates' )
+		if s:Latex_LoadMenus == 'auto' | call s:AddMenus()
+		else                           | call s:RereadTemplates()
+		endif
+	endif
+	if a:ftype == 'latex'
+		call s:CreateAdditionalLatexMaps()
+	elseif a:ftype == 'bib'
+		call s:CreateAdditionalBibtexMaps()
+	endif
+	call s:CheckTemplatePersonalization()
+endfunction    " ----------  end of function s:Initialize  ----------
+
+"-------------------------------------------------------------------------------
 " Latex_Settings : Display plug-in settings.   {{{1
 "
 " verbosity:
@@ -2115,7 +2585,9 @@ function! Latex_Settings ( verbose )
 	if     s:MSWIN | let sys_name = 'Windows'
 	elseif s:UNIX  | let sys_name = 'UN*X'
 	else           | let sys_name = 'unknown' | endif
-	"
+	if    s:NEOVIM | let vim_name = 'nvim'
+	else           | let vim_name = has('gui_running') ? 'gvim' : 'vim' | endif
+
 	let	txt = " LaTeX-Support settings\n\n"
 	" template settings: macros, style, ...
 	if exists ( 'g:Latex_Templates' )
@@ -2130,7 +2602,7 @@ function! Latex_Settings ( verbose )
 		let txt .= "                templates :  -not loaded-\n\n"
 	endif
 	" plug-in installation
-	let txt .= '      plugin installation :  '.s:installation.' on '.sys_name."\n"
+	let txt .= '      plugin installation :  '.s:installation.' in '.vim_name.' on '.sys_name."\n"
 	" toolbox
 	if s:Latex_UseToolbox == 'yes'
 		let toollist = mmtoolbox#tools#GetList ( s:Latex_Toolbox )
@@ -2152,7 +2624,7 @@ function! Latex_Settings ( verbose )
 	else
 		let txt .= "           template files :  -not loaded-\n"
 	endif
-	let txt = txt.'   code snippet directory :  "'.g:Latex_CodeSnippets."\"\n"
+	let txt = txt.'   code snippet directory :  "'.s:Latex_CodeSnippets."\"\n"
 	" ----- dictionaries ------------------------
   if !empty(g:Latex_Dictionary_File)
 		let ausgabe= &dictionary
@@ -2163,7 +2635,7 @@ function! Latex_Settings ( verbose )
 	if a:verbose >= 1
 		let	txt .= "\n"
 					\ .'                mapleader :  "'.g:Latex_MapLeader."\"\n"
-					\ .'     load menus / delayed :  "'.s:Latex_LoadMenus.'" / "'.s:Latex_CreateMenusDelayed."\"\n"
+					\ .'               load menus :  "'.s:Latex_LoadMenus."\"\n"
 					\ .'       insert file prolog :  "'.s:Latex_InsertFileProlog."\"\n"
 	endif
 	let txt = txt."\n"
@@ -2179,48 +2651,6 @@ function! Latex_Settings ( verbose )
 		echo txt
 	endif
 endfunction    " ----------  end of function Latex_Settings ----------
-
-"-------------------------------------------------------------------------------
-" s:Hardcopy : Print buffer to PostScript file.   {{{1
-"
-" Parameters:
-"   mode - "n" or "v" (string)
-" Returns:
-"   <+RETURN+> - <+DESCRIPTION+> (<+TYPE+>)
-"-------------------------------------------------------------------------------
-function! s:Hardcopy ( mode )
-  let outfile = expand("%")
-  if empty(outfile)
-    redraw!
-    echohl WarningMsg | echo " no file name " | echohl None
-    return
-  endif
-	let outdir	= getcwd()
-	if filewritable(outdir) != 2
-		let outdir	= $HOME
-	endif
-	if  !s:MSWIN
-		let outdir	= outdir.'/'
-	endif
-
-	let old_printheader=&printheader
-	exe  ':set printheader='.s:Latex_Printheader
-	" ----- normal mode ----------------
-	if a:mode=="n"
-		silent exe  'hardcopy > '.outdir.outfile.'.ps'
-		if  !s:MSWIN
-			echo 'file "'.outfile.'" printed to "'.outdir.outfile.'.ps"'
-		endif
-	endif
-	" ----- visual mode ----------------
-	if a:mode=="v"
-		silent exe  "'<,'>hardcopy > ".outdir.outfile.".ps"
-		if  !s:MSWIN
-			echo 'file "'.outfile.'" (lines '.line("'<").'-'.line("'>").') printed to "'.outdir.outfile.'.ps"'
-		endif
-	endif
-	exe  ':set printheader='.escape( old_printheader, ' %' )
-endfunction   " ---------- end of function s:Hardcopy  ----------
 
 "-------------------------------------------------------------------------------
 " === Setup: Templates, toolbox and menus ===   {{{1
@@ -2243,16 +2673,18 @@ endif
 call s:ToolMenu ( 'setup' )
 
 " load the menu right now?
-if s:Latex_LoadMenus == 'yes' && s:Latex_CreateMenusDelayed == 'no'
+if s:Latex_LoadMenus == 'startup'
 	call s:AddMenus ()
 endif
 
 " user defined commands (working everywhere)
+command! -nargs=? -complete=file -bang                 LatexMainDoc         call <SID>SetMainDocument(<q-args>,'<bang>'=='!')
 command! -nargs=? -complete=file                       Latex                call <SID>Compile(<q-args>)
 command! -nargs=? -complete=file                       LatexBibtex          call <SID>Bibtex(<q-args>)
 command! -nargs=? -complete=file                       LatexCheck           call <SID>Lacheck(<q-args>)
 command! -nargs=? -complete=file                       LatexMakeglossaries  call <SID>Makeglossaries(<q-args>)
 command! -nargs=? -complete=file                       LatexMakeindex       call <SID>Makeindex(<q-args>)
+command! -nargs=? -complete=file                       LatexConvert         call <SID>Conversions(<q-args>,'')
 command! -nargs=* -complete=file                       LatexView            call <SID>View(<q-args>)
 
 command! -nargs=0                                      LatexErrors      call <SID>BackgroundErrors()
@@ -2261,39 +2693,24 @@ command! -nargs=? -complete=custom,<SID>GetTypesetterList  LatexTypesetter   cal
 command! -nargs=? -complete=custom,<SID>GetProcessingList  LatexProcessing   call <SID>SetProcessing(<q-args>)
 
 if has( 'autocmd' )
+	augroup LatexSupport
 
-  " In the absence of any LaTeX keywords, the default filetype for *.tex files is 'plaintex'.
-  " This means new files have this filetype.
+	" In the absence of any LaTeX keywords, the default filetype for *.tex files is 'plaintex'.
+	" This means new files have this filetype.
+	if s:Latex_TexFlavor == 'latex'
+		autocmd FileType plaintex  set filetype=tex | " COMMENT: g:Latex_TexFlavor == 'latex'
+	endif
 
-  autocmd FileType *
-        \ if &filetype == 'plaintex' && s:Latex_TexFlavor == 'latex' |
-        \   set filetype=tex |
-        \ endif |
-        \ if &filetype == 'tex' |
-        \   if ! exists( 'g:Latex_Templates' ) |
-        \     if s:Latex_LoadMenus == 'yes' | call s:AddMenus () |
-        \     else                          | call s:RereadTemplates ()    |
-        \     endif |
-        \   endif |
-        \   call s:CreateAdditionalLatexMaps () |
-				\		call s:CheckTemplatePersonalization() |
-        \ endif
+	" create menus and maps
+	autocmd FileType tex  call s:Initialize('latex')
+	autocmd FileType bib  call s:Initialize('bib')
 
-  autocmd FileType *
-        \ if &filetype == 'bib' |
-        \   if ! exists( 'g:Latex_Templates' ) |
-        \     if s:Latex_LoadMenus == 'yes' | call s:AddMenus () |
-        \     else                          | call s:RereadTemplates ()    |
-        \     endif |
-        \   endif |
-        \   call s:CreateAdditionalBibtexMaps () |
-				\		call s:CheckTemplatePersonalization() |
-        \ endif
+	" insert file header
+	if s:Latex_TexFlavor == 'latex'
+		autocmd BufNewFile  *.tex  call s:InsertFileHeader() | " COMMENT: g:Latex_TexFlavor == 'latex'
+	endif
 
-  if s:Latex_TexFlavor == 'latex' && s:Latex_InsertFileProlog == 'yes'
-    autocmd BufNewFile  *.tex  call mmtemplates#core#InsertTemplate(g:Latex_Templates, 'Comments.file prolog')
-  endif
-
+	augroup END
 endif
 " }}}1
 "-------------------------------------------------------------------------------
