@@ -31,7 +31,7 @@ _Please read the release notes below._
 
 --------------------------------------------------------------------------------
 
-README for latex-support.vim (Version 1.3alpha) / February 08 2018
+README for latex-support.vim (Version 2.0beta) / April 14 2019
 ================================================================================
 
   *  INSTALLATION
@@ -199,7 +199,7 @@ Any problems? See the TROUBLESHOOTING section at the end of the help file
 RELEASE NOTES
 ================================================================================
 
-RELEASE NOTES FOR VERSION 1.3alpha
+RELEASE NOTES FOR VERSION 2.0beta
 ----------------------------------------------------------------------
 - Adapt for running under Neovim more smoothly.
 - Add commands :Latex, :LatexCheck, :LatexMakeindex, and :LatexBibtex to run the
@@ -214,7 +214,7 @@ RELEASE NOTES FOR VERSION 1.3alpha
 - Add command :LatexErrors and map ´re to view errors from background processing
   in quickfix.
 - BibTeX errors are recognized by quickfix.
-- Add a converter 'eps-pdf'.
+- Add a conversion 'eps-pdf'.
 - The templates which are inserted into new files as file skeletons can be
   specified in the templates library, via the property:
     `Latex::FileSkeleton::Script`

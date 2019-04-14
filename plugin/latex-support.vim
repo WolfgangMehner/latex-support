@@ -16,9 +16,9 @@
 "
 "       Version:  see variable g:LatexSupportVersion below.
 "       Created:  27.12.2012
-"      Revision:  07.02.2018
+"      Revision:  14.04.2019
 "       License:  Copyright (c) 2012-2015, Fritz Mehner
-"                 Copyright (c) 2016-2017, Wolfgang Mehner
+"                 Copyright (c) 2016-2019, Wolfgang Mehner
 "                 This program is free software; you can redistribute it and/or
 "                 modify it under the terms of the GNU General Public License as
 "                 published by the Free Software Foundation, version 2 of the
@@ -48,7 +48,7 @@ if exists("g:LatexSupportVersion") || &cp
 	finish
 endif
 
-let g:LatexSupportVersion= "1.3alpha"                  " version number of this script; do not change
+let g:LatexSupportVersion= "2.0beta"                  " version number of this script; do not change
 
 "-------------------------------------------------------------------------------
 " === Auxiliary functions ===   {{{1
@@ -72,6 +72,32 @@ function! s:ApplyDefaultSetting ( varname, value )
 		let { 'g:'.a:varname } = a:value
 	endif
 endfunction    " ----------  end of function s:ApplyDefaultSetting  ----------
+
+"-------------------------------------------------------------------------------
+" s:ChangeDir : Change the working directory.   {{{2
+"
+" Respects the local directory if 'haslocaldir' is avaiable.
+" (in newer Vim version)
+"
+" Parameters:
+"   dir - the new directory, might be "-" (string)
+" Returns:
+"   -
+"-------------------------------------------------------------------------------
+
+let g:has_ld = exists( '*haslocaldir' )
+
+function! s:ChangeDir ( dir )
+
+	let cmd = 'cd'
+
+	if g:has_ld && haslocaldir()
+		let cmd = 'lchdir'
+	endif
+
+	exec cmd fnameescape ( a:dir )
+
+endfunction    " ----------  end of function s:ChangeDir  ----------
 
 "-------------------------------------------------------------------------------
 " s:ErrorMsg : Print an error message.   {{{2
@@ -633,7 +659,6 @@ endif
 " User configurable options   {{{3
 "-------------------------------------------------------------------------------
 
-let s:escfilename 								= ' \%#[]'
 let s:Latex_TexFlavor							= 'latex'
 let s:Latex_GuiSnippetBrowser 		= 'gui'             " gui / commandline
 let s:Latex_LoadMenus             = 'auto'            " load the menus?
@@ -651,7 +676,6 @@ endif
 let s:Latex_LineEndCommColDefault = 49
 let s:Latex_TemplateJumpTarget 		= ''
 let s:Latex_Wrapper               = s:plugin_dir.'/latex-support/scripts/wrapper.sh'
-let s:Latex_InsertFileProlog      = 'yes'
 let s:Latex_Ctrl_j                = 'yes'
 let s:Latex_Ctrl_d                = 'yes'
 
@@ -677,7 +701,6 @@ call s:GetGlobalSetting( 'Latex_Ctrl_j' )
 call s:GetGlobalSetting( 'Latex_Ctrl_d' )
 call s:GetGlobalSetting( 'Latex_EpsPdf' )
 call s:GetGlobalSetting( 'Latex_GuiSnippetBrowser' )
-call s:GetGlobalSetting( 'Latex_InsertFileProlog' )
 call s:GetGlobalSetting( 'Latex_Latex' )
 call s:GetGlobalSetting( 'Latex_LineEndCommColDefault' )
 call s:GetGlobalSetting( 'Latex_LoadMenus' )
@@ -698,7 +721,8 @@ call s:GetGlobalSetting( 'Latex_Typesetter' )
 call s:GetGlobalSetting( 'Latex_UseToolbox' )
 
 " overwrite the mapleader, we should not use use "\" in LaTeX
-call s:ApplyDefaultSetting ( 'Latex_MapLeader', '´' )
+call s:ApplyDefaultSetting ( 'Latex_InsertFileProlog', 'yes' )            " default: do insert a file prolog
+call s:ApplyDefaultSetting ( 'Latex_MapLeader', '´' )                     " default: overwrite 'maplocalleader'
 call s:ApplyDefaultSetting ( 'Latex_Printheader',  "%<%f%h%m%<  %=%{strftime('%x %X')}     Page %N" )
 
 " adapt for backwards compatibility
@@ -1106,10 +1130,11 @@ if s:NEOVIM
 " Parameters:
 "   id - the job ID (string)
 "   cmd - the shell command to run (string, or list of strings)
+"   opt - job options (dict)
 " Returns:
 "   -
 "-------------------------------------------------------------------------------
-function! s:BackgroundStart ( id, cmd )
+function! s:BackgroundStart ( id, cmd, opt )
 	if exists ( 's:BackgroundJob' )
 		return s:WarningMsg ( 'Job "'.s:BackgroundType.'" still running.' )
 	endif
@@ -1119,12 +1144,12 @@ function! s:BackgroundStart ( id, cmd )
 	let s:BackgroundOutStd = []
 	let s:BackgroundOutErr = []
 
-	let s:BackgroundJob = jobstart ( a:cmd,
-				\ {
-				\ 'on_stdout' : '<SNR>'.s:SID().'_BackgroundCB_IO',
-				\ 'on_stderr' : '<SNR>'.s:SID().'_BackgroundCB_IO',
-				\ 'on_exit'   : '<SNR>'.s:SID().'_BackgroundCB_Exit',
-				\ } )
+	let opt = copy ( a:opt )
+	let opt.on_stdout = '<SNR>'.s:SID().'_BackgroundCB_IO'
+	let opt.on_stderr = '<SNR>'.s:SID().'_BackgroundCB_IO'
+	let opt.on_exit   = '<SNR>'.s:SID().'_BackgroundCB_Exit'
+
+	let s:BackgroundJob = jobstart ( a:cmd, opt )
 
 	if s:BackgroundJob <= 0
 		call s:WarningMsg ( 'Starting "'.s:BackgroundType.'" failed!' )
@@ -1183,10 +1208,11 @@ else   " ! s:NEOVIM
 " Parameters:
 "   id - the job ID (string)
 "   cmd - the shell command to run (string, or list of strings)
+"   opt - job options (dict)
 " Returns:
 "   -
 "-------------------------------------------------------------------------------
-function! s:BackgroundStart ( id, cmd )
+function! s:BackgroundStart ( id, cmd, opt )
 	if exists ( 's:BackgroundJob' )
 		return s:WarningMsg ( 'Job "'.s:BackgroundType.'" still running.' )
 	endif
@@ -1195,11 +1221,11 @@ function! s:BackgroundStart ( id, cmd )
 	let s:BackgroundStatus = -1
 	let s:BackgroundOutStd = []
 
-	let s:BackgroundJob = job_start ( a:cmd,
-				\ {
-				\ 'callback' : '<SNR>'.s:SID().'_BackgroundCB_IO',
-				\ 'exit_cb'  : '<SNR>'.s:SID().'_BackgroundCB_Exit',
-				\ } )
+	let opt = copy ( a:opt )
+	let opt.callback = '<SNR>'.s:SID().'_BackgroundCB_IO'
+	let opt.exit_cb  = '<SNR>'.s:SID().'_BackgroundCB_Exit'
+
+	let s:BackgroundJob = job_start ( a:cmd, opt )
 
 	if job_status ( s:BackgroundJob ) == 'fail'
 		call s:WarningMsg ( 'Starting "'.s:BackgroundType.'" failed!' )
@@ -1332,7 +1358,6 @@ function! s:Compile ( args )
 	elseif s:Latex_MainDocument != ''
 		let source = s:Latex_MainDocument           " name of the main document
 		let dir    = fnamemodify ( source, ':p:h' )
-		exe 'cd '.fnameescape( dir )
 	else
 		let source = expand("%")                    " name of the file in the current buffer
 	endif
@@ -1344,12 +1369,34 @@ function! s:Compile ( args )
 
 	cclose
 
-	try
-		if s:Latex_Processing == 'background'
+	" --- Background Processing ----------------------------------
+	if s:Latex_Processing == 'background'
+		try
 			let arg_list = s:ShellParseArgs ( typesettercall ) + [ source ]
+		catch /^ShellParseArgs:Syntax:/
+			let msg = v:exception[ len( 'ShellParseArgs:Syntax:') : -1 ]
+			return s:WarningMsg ( 'syntax error while parsing typersetter arguments: '.msg,
+						\ ' - typersetter call: '.typesettercall )
+		catch /.*/
+			return s:WarningMsg (
+						\ "internal error (" . v:exception . ")",
+						\ " - occurred at " . v:throwpoint )
+		endtry
 
-			call s:BackgroundStart ( s:Latex_Typesetter, arg_list )
-			return       | " continue with 'finally' below
+		let opt = {}
+		if dir != ''
+			let opt.cwd = dir
+		endif
+
+		call s:BackgroundStart ( s:Latex_Typesetter, arg_list, opt )
+		return
+	endif
+
+	" --- Foreground Processing ----------------------------------
+	try
+		" set working directory
+		if dir != ''
+			call s:ChangeDir( dir )
 		endif
 
 		" save current settings
@@ -1366,10 +1413,6 @@ function! s:Compile ( args )
 		let &l:makeprg     = makeprg_saved
 		let &l:errorformat = errorf_saved
 
-	catch /^ShellParseArgs:Syntax:/
-		let msg = v:exception[ len( 'ShellParseArgs:Syntax:') : -1 ]
-		return s:WarningMsg ( 'syntax error while parsing typersetter arguments: '.msg,
-					\ ' - typersetter call: '.typesettercall )
 	catch /.*/
 		return s:WarningMsg (
 					\ "internal error (" . v:exception . ")",
@@ -1377,7 +1420,7 @@ function! s:Compile ( args )
 	finally
 		" jump back to the old working directory
 		if dir != ''
-			cd -
+			call s:ChangeDir( '-' )
 		endif
 	endtry
 
@@ -1394,11 +1437,17 @@ endfunction    " ----------  end of function s:Compile ----------
 "-------------------------------------------------------------------------------
 function! s:Bibtex ( args )
 
+	let dir = ''
+
 	" get the root of the name of the current buffer
-	if a:args == ''
-		let aux_file = expand("%:r")
-	else
+	if a:args != ''
 		let aux_file = a:args
+	elseif s:Latex_MainDocument != ''
+		let source   = s:Latex_MainDocument         " name of the main document
+		let dir      = fnamemodify ( source, ':p:h' )
+		let aux_file = fnamemodify ( source, ':r' )
+	else
+		let aux_file = expand("%:r")
 	endif
 
 	" write source file if necessary
@@ -1408,19 +1457,38 @@ function! s:Bibtex ( args )
 
 	cclose
 
-	" save current settings
-	let makeprg_saved = &l:makeprg
-	let errorf_saved  = &l:errorformat
+	try
+		" set working directory
+		if dir != ''
+			call s:ChangeDir( dir )
+		endif
 
-	" run bibtex
-	let &l:makeprg     = s:Latex_Bibtex
-	let &l:errorformat = s:Latex_BibtexErrorf
+		" :WORKAROUND:12.02.2018 20:25:WM: bibtex seems to have problems with absolute paths
+		let aux_file = fnamemodify ( aux_file, ':.' )
 
-	exe "make! ".shellescape ( aux_file )       | " do not jump to the first error
+		" save current settings
+		let makeprg_saved = &l:makeprg
+		let errorf_saved  = &l:errorformat
 
-	" restore current settings
-	let &l:makeprg     = makeprg_saved
-	let &l:errorformat = errorf_saved
+		" run bibtex
+		let &l:makeprg     = s:Latex_Bibtex
+		let &l:errorformat = s:Latex_BibtexErrorf
+
+		exe "make! ".shellescape ( aux_file )       | " do not jump to the first error
+
+		" restore current settings
+		let &l:makeprg     = makeprg_saved
+		let &l:errorformat = errorf_saved
+	catch /.*/
+		return s:WarningMsg (
+					\ "internal error (" . v:exception . ")",
+					\ " - occurred at " . v:throwpoint )
+	finally
+		" jump back to the old working directory
+		if dir != ''
+			call s:ChangeDir( '-' )
+		endif
+	endtry
 
 	" open error window if necessary
 	botright cwindow
@@ -1516,7 +1584,7 @@ function! s:Lacheck ( args )
 
 	let v:statusmsg = ''                          " reset, so we are able to check it below
 	silent exe "make ".shellescape ( source )   | " do not jump to the first error
-	" :TODO:26.11.2016 22:12:WM: using make! here seems to cause v:statusmsg to
+	" :TRICKY:26.11.2016 22:12:WM: using make! here seems to cause v:statusmsg to
 	" never be set to a none-emtpy value
 
 	" restore current settings
@@ -1562,7 +1630,11 @@ function! s:View ( args )
 	if a:args =~ '^\s*\(dvi\|pdf\|ps\)\s*$'
 		" :LatexView fmt
 		let format = substitute ( a:args, '\s\+', '', 'g' )
-		let targetfile = expand("%:r").'.'.format
+		if s:Latex_MainDocument != ''
+			let targetfile = fnamemodify( s:Latex_MainDocument, ':p:r' ).'.'.format
+		else
+			let targetfile = expand("%:r").'.'.format
+		endif
 	elseif a:args =~ '^\s*\(dvi\|pdf\|ps\)\s'
 		" :LatexView fmt file
 		let mlist = matchlist ( a:args, '^\s*\(dvi\|pdf\|ps\)\s\+\(.*\)' )
@@ -1589,7 +1661,11 @@ function! s:View ( args )
 		endif
 
 		" get the file
-		let targetfile = expand("%:r").'.'.format
+		if s:Latex_MainDocument != ''
+			let targetfile = fnamemodify( s:Latex_MainDocument, ':p:r' ).'.'.format
+		else
+			let targetfile = expand("%:r").'.'.format
+		endif
 	endif
 
 	" check the file ...
@@ -1609,7 +1685,9 @@ function! s:View ( args )
 	endif
 
 	" run the command
-	if s:MSWIN
+	if s:NEOVIM
+		call jobstart ( viewer.' '.targetfile, { 'detach' : 1 } )
+	elseif s:MSWIN
 		silent exe '!start '.viewer.' '.targetfile
 	else
 		silent exe '!'.viewer.' '.targetfile.' &'
@@ -1628,7 +1706,6 @@ endfunction    " ----------  end of function s:View ----------
 "-------------------------------------------------------------------------------
 function! s:Conversions ( filename, format )
 
-	let filename = a:filename
 	let convert  = a:format
 
 	" handle the conversion
@@ -1657,8 +1734,15 @@ function! s:Conversions ( filename, format )
 
 	cclose
 
+	let dir = ''
+
 	" handle the input file
-	if filename == ''
+	if a:filename != ''
+		let filename = a:filename
+	elseif s:Latex_MainDocument != ''
+		let filename = s:Latex_MainDocument         " name of the main document
+		let dir      = fnamemodify ( filename, ':p:h' )
+	else
 		let filename = expand("%")
 	endif
 	let fileroot = fnamemodify ( filename, ':r' )
@@ -1667,6 +1751,7 @@ function! s:Conversions ( filename, format )
 	let target  = ''
 	let t_ext   = split( convert, '-' )[1]
 
+	" --- Background Processing ----------------------------------
 	if s:Latex_Processing == 'background'
 		try
 			let arg_list = s:ShellParseArgs ( convertercall ) + [ source ]
@@ -1684,16 +1769,39 @@ function! s:Conversions ( filename, format )
 			let arg_list += [ fileroot.'.'.t_ext ]
 		endif
 
-		call s:BackgroundStart ( convert, arg_list )
+		let opt = {}
+		if dir != ''
+			let opt.cwd = dir
+		endif
+
+		call s:BackgroundStart ( convert, arg_list, opt )
 		return
 	endif
 
+	" --- Foreground Processing ----------------------------------
 	if need_output_file
 		let target = shellescape ( fileroot.'.'.t_ext )
 	endif
 	let logfile = fileroot.'.conversion.log'
 
-	silent exe '!'.convertercall.' '.shellescape( source ).' '.target.' > '.shellescape( logfile )
+	try
+		" set working directory
+		if dir != ''
+			call s:ChangeDir( dir )
+		endif
+
+		silent exe '!'.convertercall.' '.shellescape( source ).' '.target.' > '.shellescape( logfile )
+
+	catch /.*/
+		return s:WarningMsg (
+					\ "internal error (" . v:exception . ")",
+					\ " - occurred at " . v:throwpoint )
+	finally
+		" jump back to the old working directory
+		if dir != ''
+			call s:ChangeDir( '-' )
+		endif
+	endtry
 
 	if v:shell_error
 		call s:Redraw('r!','r')                     " redraw after cclose, before echoing
@@ -1801,10 +1909,16 @@ function! s:Texdoc( )
 	endif
 
 	if !empty(item)
-		let cmd = 'texdoc '.item.' &'
-		call system( cmd )
-		if v:shell_error
-			return s:ErrorMsg ( 'Shell command "'.cmd.'" failed.' )
+		if s:NEOVIM
+			let jobid = jobstart ( 'texdoc '.item, { 'detach' : 1 } )
+			if jobid <= 0
+				return s:ErrorMsg ( 'Shell command "texdoc '.item.'" failed.' )
+			endif
+		else
+			call system( 'texdoc '.item.' &' )
+			if v:shell_error
+				return s:ErrorMsg ( 'Shell command "texdoc '.item.'" failed.' )
+			endif
 		endif
 	endif
 endfunction		" ---------- end of function  s:Texdoc  ----------
@@ -1926,32 +2040,6 @@ function! s:RereadTemplates ()
 endfunction    " ----------  end of function s:RereadTemplates  ----------
 
 "-------------------------------------------------------------------------------
-" s:CheckTemplatePersonalization : Check template personalization.   {{{1
-"
-" Check whether the |AUTHOR| has been set in the template library.
-" If not, display help on how to set up the template personalization.
-"-------------------------------------------------------------------------------
-let s:DoneCheckTemplatePersonalization = 0
-
-function! s:CheckTemplatePersonalization ()
-
-	" check whether the templates are personalized
-	if s:DoneCheckTemplatePersonalization
-				\ || mmtemplates#core#ExpandText ( g:Latex_Templates, '|AUTHOR|' ) != 'YOUR NAME'
-				\ || s:Latex_InsertFileProlog != 'yes'
-		return
-	endif
-
-	let s:DoneCheckTemplatePersonalization = 1
-
-	let maplead = mmtemplates#core#Resource ( g:Latex_Templates, 'get', 'property', 'Templates::Mapleader' )[0]
-
-	redraw
-	call s:ImportantMsg ( 'The personal details are not set in the template library. Use the map "'.maplead.'ntw".' )
-
-endfunction    " ----------  end of function s:CheckTemplatePersonalization  ----------
-
-"-------------------------------------------------------------------------------
 " s:CheckAndRereadTemplates : Make sure the templates are loaded.   {{{1
 "-------------------------------------------------------------------------------
 function! s:CheckAndRereadTemplates ()
@@ -1967,7 +2055,7 @@ function! s:InsertFileHeader ()
 	call s:CheckAndRereadTemplates()
 
 	" prevent insertion for a file generated from a some error
-	if isdirectory(expand('%:p:h')) && s:Latex_InsertFileProlog == 'yes'
+	if isdirectory(expand('%:p:h')) && g:Latex_InsertFileProlog == 'yes'
 		let templ_s = mmtemplates#core#Resource ( g:Latex_Templates, 'get', 'property', 'Latex::FileSkeleton::Script' )[0]
 
 		" insert templates in reverse order, always above the first line
@@ -2566,7 +2654,6 @@ function! s:Initialize ( ftype )
 	elseif a:ftype == 'bib'
 		call s:CreateAdditionalBibtexMaps()
 	endif
-	call s:CheckTemplatePersonalization()
 endfunction    " ----------  end of function s:Initialize  ----------
 
 "-------------------------------------------------------------------------------
@@ -2636,7 +2723,7 @@ function! Latex_Settings ( verbose )
 		let	txt .= "\n"
 					\ .'                mapleader :  "'.g:Latex_MapLeader."\"\n"
 					\ .'               load menus :  "'.s:Latex_LoadMenus."\"\n"
-					\ .'       insert file prolog :  "'.s:Latex_InsertFileProlog."\"\n"
+					\ .'       insert file prolog :  "'.g:Latex_InsertFileProlog."\"\n"
 	endif
 	let txt = txt."\n"
 	let txt = txt.'               typesetter :  "'.s:Latex_TypesetterCall[s:Latex_Typesetter]."\"\n"
